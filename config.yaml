@@ -1,0 +1,112 @@
+portfolio:
+  capital: 3_000_000         # your total trading capital in VND
+  risk_per_trade_pct: 0.02   # risk 2% of capital per trade (conservative)
+  max_position_pct: 0.15     # never more than 15% of capital in one stock
+  max_total_risk_pct: 0.06   # max 6% portfolio risk across all open trades
+
+claude:
+  model: claude-sonnet-4-6
+  max_tokens_analysis: 1500
+  max_tokens_scan: 600
+  max_tokens_ticker: 800
+
+retry:
+  attempts: 3
+  backoff: 2.0               # exponential backoff base (seconds)
+
+parallelism:
+  max_workers: 8
+
+multiday:
+  lookback_offsets: [0, 1, 3, 5]   # trading-day offsets: 0=today, 1=yesterday, 3=3d ago, 5=5d ago
+  consistency_bonus: 0.30           # max +30% score boost for perfect cross-day consistency
+  min_streak: 2                     # min consecutive days a signal must persist to show in results
+  high_conviction_min_consistency: 0.75   # consistency_score threshold for HIGH label
+  medium_conviction_min_consistency: 0.50 # consistency_score threshold for MEDIUM label
+
+sectors:
+  Banking:     [VCB, BID, CTG, TCB, VPB, MBB, ACB, STB, HDB, SHB, EIB]
+  Real Estate: [VHM, VIC, KDH, TCH]
+  Securities:  [SSI, VCI, HCM, VND]
+  Consumer:    [VNM, MSN, MWG, SAB, PNJ]
+  Industrial:  [HPG, REE]
+  Energy:      [GAS, PLX, POW]
+  Technology:  [FPT]
+
+watchlist:
+  vn30:
+    - VCB
+    - BID
+    - CTG
+    - TCB
+    - VPB
+    - MBB
+    - ACB
+    - STB
+    - HDB
+    - VHM
+    - VIC
+    - VNM
+    - MSN
+    - MWG
+    - FPT
+    - HPG
+    - GAS
+    - PLX
+    - SAB
+    - POW
+    - PNJ
+    - REE
+    - SSI
+    - VCI
+    - HCM
+    - VND
+    - SHB
+    - EIB
+    - TCH
+    - KDH
+
+thresholds:
+  daily:
+    min_confidence: 0.60
+    rsi_oversold: 30
+    rsi_overbought: 70
+    volume_spike_ratio: 1.5       # volume > 1.5x 20-day avg
+  monthly:
+    min_confidence: 0.65
+    ma_short: 20
+    ma_long: 60
+    volume_confirmation_ratio: 1.2
+    sr_proximity_pct: 0.02
+  yearly:
+    min_confidence: 0.70
+    pe_discount_to_sector: 0.20   # 20% below sector median P/E → bonus +0.20
+    pe_cheap: 12                  # P/E below this = cheap (absolute)
+    pe_expensive: 25              # P/E above this = expensive (absolute)
+    pb_cheap: 1.5                 # P/B below this = below book
+    pb_expensive: 4.0             # P/B above this = premium
+    min_roe: 0.12
+    max_debt_equity: 1.5
+    min_eps_growth: 0.10
+    min_dividend_yield: 0.02
+    min_revenue_cagr: 0.08
+
+data_cache_ttl:
+  intraday: 300          # 5 min
+  daily_ohlcv: 3600      # 1 hour
+  fundamentals: 86400    # 1 day
+  financial_statements: 604800  # 1 week
+
+risk_levels:
+  atr_stop_multiplier: 1.5      # stop loss = price - N × ATR
+  atr_target_multiplier: 3.0    # target   = price + N × ATR (2:1 R/R ratio)
+
+backtest:
+  commission_pct: 0.0015        # 0.15% round-trip (HOSE typical)
+  slippage_pct: 0.001           # 0.1% market impact
+
+output:
+  top_n: 10
+  formats:
+    - table
+    - json

@@ -1,0 +1,12 @@
+.env
+data/
+__pycache__/
+*.pyc
+*.pkl
+*.json.cache
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+dist/
+*.egg-info/
+*.jsonl
