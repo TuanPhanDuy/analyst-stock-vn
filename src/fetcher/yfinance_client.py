@@ -50,6 +50,7 @@ def get_ohlcv(ticker: str, days: int = 400, ttl: int = 3600) -> pd.DataFrame:
     """
     Fetch daily OHLCV for a VN ticker.
     Returns DataFrame with DatetimeIndex (tz-naive), columns: open high low close volume.
+    Falls back to stale cache (up to 7 days) if the live fetch fails.
     Raises ValueError if fewer than 60 rows returned.
     """
     path = _cache_path(f"yf_{ticker}_{days}")
@@ -59,9 +60,16 @@ def get_ohlcv(ticker: str, days: int = 400, ttl: int = 3600) -> pd.DataFrame:
 
     sym = _sym(ticker)
     start = (date.today() - timedelta(days=days)).isoformat()
-    df = _retry(lambda: yf.download(sym, start=start, auto_adjust=True, progress=False))
+    try:
+        df = _retry(lambda: yf.download(sym, start=start, auto_adjust=True, progress=False))
+    except Exception:
+        df = pd.DataFrame()
 
     if df.empty:
+        # Try serving stale cache before giving up (tolerates transient API failures)
+        stale = _load_cache(path, ttl=7 * 86400)
+        if stale is not None:
+            return stale
         raise ValueError(f"No data returned for {ticker}")
 
     df.columns = [c.lower() for c in df.columns]
@@ -76,26 +84,47 @@ def get_ohlcv(ticker: str, days: int = 400, ttl: int = 3600) -> pd.DataFrame:
 
 
 def get_ohlcv_bulk(tickers: list, days: int = 400) -> dict:
-    """Fetch all tickers in one API call. Returns {ticker: df} for successful ones."""
+    """
+    Fetch all tickers via one bulk API call, then fall back to per-ticker
+    fetching for any that are missing or empty in the bulk result.
+    Returns {ticker: df} for successful ones.
+    """
     syms = [_sym(t) for t in tickers]
     start = (date.today() - timedelta(days=days)).isoformat()
-
-    raw = _retry(lambda: yf.download(syms, start=start, auto_adjust=True, group_by="ticker", progress=False))
-
     result = {}
-    for ticker, sym in zip(tickers, syms):
-        try:
-            if len(tickers) == 1:
-                df = raw.copy()
-            else:
-                df = raw[sym].copy()
-            df.columns = [c.lower() for c in df.columns]
-            df.index = pd.to_datetime(df.index).tz_localize(None)
-            df = df[["open", "high", "low", "close", "volume"]].dropna()
-            if len(df) >= 60:
-                result[ticker] = df
-        except Exception:
-            pass
+
+    # ── 1. Bulk fetch ─────────────────────────────────────────────────────────
+    try:
+        raw = _retry(
+            lambda: yf.download(
+                syms, start=start, auto_adjust=True,
+                group_by="ticker", progress=False,
+            )
+        )
+        for ticker, sym in zip(tickers, syms):
+            try:
+                df = raw.copy() if len(tickers) == 1 else raw[sym].copy()
+                df.columns = [c.lower() for c in df.columns]
+                df.index = pd.to_datetime(df.index).tz_localize(None)
+                df = df[["open", "high", "low", "close", "volume"]].dropna()
+                if len(df) >= 60:
+                    result[ticker] = df
+            except Exception:
+                pass
+    except Exception:
+        pass  # bulk totally failed — will retry per-ticker below
+
+    # ── 2. Per-ticker fallback for anything missing ───────────────────────────
+    missing = [t for t in tickers if t not in result]
+    if missing:
+        print(f"  [fallback] Fetching {len(missing)} tickers individually…")
+        for ticker in missing:
+            try:
+                result[ticker] = get_ohlcv(ticker, days=days)
+            except Exception as e:
+                print(f"  [warn] {ticker}: {e}")
+            time.sleep(0.3)   # be polite to Yahoo Finance
+
     return result
 
 

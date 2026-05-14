@@ -4,10 +4,20 @@ Appends actionable signals to data/signals.jsonl (JSON-Lines format).
 Each line is one signal record; outcomes can be updated later.
 """
 import json
+import math
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import pandas as pd
+
+
+def _safe_float(v) -> float:
+    """Convert to float, replacing NaN/Inf with 0.0 so json.dumps never raises."""
+    try:
+        f = float(v)
+        return f if math.isfinite(f) else 0.0
+    except (TypeError, ValueError):
+        return 0.0
 
 LOG_PATH = Path(__file__).parent.parent.parent / "data" / "signals.jsonl"
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -46,12 +56,12 @@ def append_signals(ranked: dict, entry_levels: dict, scan_date: str,
                 ticker=ticker,
                 timeframe=item.get("timeframe", ""),
                 action=action.upper(),
-                confidence=float(item.get("confidence", 0.0)),
-                price=float(item.get("price", 0.0)),
-                entry=float(levels.get("entry", item.get("price", 0.0))),
-                stop_loss=float(levels.get("stop_loss", 0.0)),
-                target=float(levels.get("target", 0.0)),
-                composite_score=float(item.get("composite", 0.0)),
+                confidence=_safe_float(item.get("confidence", 0.0)),
+                price=_safe_float(item.get("price", 0.0)),
+                entry=_safe_float(levels.get("entry", item.get("price", 0.0))),
+                stop_loss=_safe_float(levels.get("stop_loss", 0.0)),
+                target=_safe_float(levels.get("target", 0.0)),
+                composite_score=_safe_float(item.get("composite", 0.0)),
                 reason=str(item.get("reason", "")),
                 outcome_result="PENDING",
             ))

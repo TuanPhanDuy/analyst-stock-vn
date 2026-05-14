@@ -28,6 +28,7 @@ import yaml
 from src.fetcher.yfinance_client import get_data_freshness, get_ohlcv_bulk
 from src.indicators.technical import entry_exit_levels
 from src.market_context import build as build_market_context
+from src.portfolio_monitor import analyze_positions, load_portfolio
 from src.position_sizer import size_ranked
 from src.signals.multiday import build_multiday_scores, rank_by_conviction
 from src.verifier import verify
@@ -48,7 +49,7 @@ def _conviction_bar(label: str) -> str:
 
 
 def run(timeframe: str = "daily") -> None:
-    with open("config.yaml") as f:
+    with open(Path(__file__).parent / "config.yaml") as f:
         cfg = yaml.safe_load(f)
 
     tickers = cfg["watchlist"]["vn30"]
@@ -100,7 +101,20 @@ def run(timeframe: str = "daily") -> None:
 
     ranked = rank_by_conviction(analyses, top_n=top_n, min_streak=min_streak)
 
-    # ── 4. Position sizing ────────────────────────────────────────────────────
+    # ── 4. Portfolio monitoring ───────────────────────────────────────────────
+    portfolio = load_portfolio()
+    portfolio_statuses = []
+    if portfolio:
+        portfolio_statuses = analyze_positions(portfolio, ohlcv_map, entry_levels)
+        _hr("My Portfolio")
+        for s in portfolio_statuses:
+            p = s.position
+            flag = " ← ACTION REQUIRED" if s.needs_action else ""
+            print(f"  {p.ticker:<6} buy={p.buy_price:,.0f}  now={s.current_price:,.0f}  "
+                  f"P&L={s.pnl_pct:+.2f}%  status={s.status}{flag}")
+            print(f"         {s.message}")
+
+    # ── 5. Position sizing ────────────────────────────────────────────────────
     port = cfg.get("portfolio", {})
     capital = port.get("capital", 100_000_000)
     risk_pct = port.get("risk_per_trade_pct", 0.02)
@@ -114,7 +128,7 @@ def run(timeframe: str = "daily") -> None:
           f"risk/trade={risk_pct*100:.0f}%  max/pos={max_pos*100:.0f}%  "
           f"affordable={n_afford}  skipped={n_skip}")
 
-    # ── 5. Print multi-day signals ────────────────────────────────────────────
+    # ── 6. Print multi-day signals ────────────────────────────────────────────
     _hr("Multi-Day Signal Analysis")
     for action in ("buy", "sell"):
         items = ranked.get(action, [])
@@ -173,7 +187,7 @@ def run(timeframe: str = "daily") -> None:
             print(f"    {item['ticker']:5s}  {item['price']:>10,.0f} ₫  "
                   f"1 lot={item['price']*100:,.0f} ₫  — {sz.get('sizing_note','')[:60]}")
 
-    # ── 6. Verify + Claude deep analysis ──────────────────────────────────────
+    # ── 7. Verify + Claude deep analysis ──────────────────────────────────────
     _hr("Verification & Claude Analysis")
     print("  Running checks and Claude deep analysis...")
 
@@ -197,19 +211,19 @@ def run(timeframe: str = "daily") -> None:
 
     result = verify(ranked, timeframe, freshness_map, market_ctx, entry_levels, cfg=cfg)
 
-    if result.issues:
-        print(f"\n  FAILED — {len(result.issues)} issue(s):")
-        for issue in result.issues:
-            print(f"    ✗ {issue}")
-        print("\n  Email NOT sent.")
-        sys.exit(1)
+    if result.warnings:
+        for w in result.warnings:
+            print(f"  ⚠ {w}")
 
     review = result.claude_review
     final = result.adjusted_ranked
 
-    n_logged = append_signals(final, entry_levels, date.today().isoformat())
-    if n_logged:
-        print(f"  ✓ Logged {n_logged} signals to data/signals.jsonl")
+    try:
+        n_logged = append_signals(final, entry_levels, date.today().isoformat())
+        if n_logged:
+            print(f"  ✓ Logged {n_logged} signals to data/signals.jsonl")
+    except Exception as e:
+        print(f"  [warn] Trade log failed (non-fatal): {e}")
 
     if isinstance(review, dict):
         print(f"\n  Market: {review.get('market_summary','')}")
@@ -219,22 +233,24 @@ def run(timeframe: str = "daily") -> None:
             print(f"  Flagged: {review['flagged_tickers']}")
         print(f"\n  Top Picks:")
         for p in review.get("top_picks", []):
-            print(f"    {p['action']:4s} {p['ticker']:5s} [{p['conviction']:6s}] "
+            print(f"    {p.get('action','?'):4s} {p.get('ticker','?'):5s} [{p.get('conviction','?'):6s}] "
                   f"entry={p.get('entry',0):,.0f}  stop={p.get('stop_loss',0):,.0f}  "
                   f"target={p.get('target',0):,.0f}")
             print(f"          {p.get('thesis','')}")
     elif review is None:
         print("  Claude analysis skipped (no API credits — signals sent without AI commentary)")
 
-    # ── 7. Send ───────────────────────────────────────────────────────────────
+    # ── 8. Send ───────────────────────────────────────────────────────────────
     _hr("Sending Notifications")
 
     if os.environ.get("GMAIL_APP_PASSWORD"):
         try:
-            email_notifier.send(final, timeframe, review, market_ctx)
+            email_notifier.send(final, timeframe, review, market_ctx,
+                                portfolio_statuses=portfolio_statuses)
             print(f"  ✓ Email → {os.environ.get('NOTIFY_EMAIL')}")
         except Exception as e:
             print(f"  ✗ Email failed: {e}")
+            sys.exit(1)
     else:
         print("  [skip] Email: set GMAIL_APP_PASSWORD in .env")
 

@@ -1,0 +1,22 @@
+{
+  "positions": [
+    {
+      "ticker": "KDH",
+      "buy_date": "2026-05-13",
+      "buy_price": 23300,
+      "qty": 0,
+      "stop_loss": 22480,
+      "target": 24939,
+      "notes": "Bought 2026-05-13 per scanner signal"
+    },
+    {
+      "ticker": "SHB",
+      "buy_date": "2026-05-13",
+      "buy_price": 14000,
+      "qty": 0,
+      "stop_loss": 13609,
+      "target": 14782,
+      "notes": "Bought 2026-05-13 per scanner signal"
+    }
+  ]
+}

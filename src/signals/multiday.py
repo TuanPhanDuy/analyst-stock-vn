@@ -164,16 +164,7 @@ def analyze_ticker(
     if not snapshots:
         return None
 
-    today_snap = snapshots[0]   # offset=0 is first (sorted ascending)
-    current_composite = today_snap.composite
-
-    comp_today = CompositeScore(
-        ticker=ticker,
-        price=float(df["close"].iloc[-1]),
-        signals=[],
-    )
-
-    # Use a fresh CompositeScore for labels
+    # Use a fresh CompositeScore for today's composite and recommendation label
     price = float(df["close"].iloc[-1])
     sigs = [
         daily.analyze(ticker, df, cfg["thresholds"]["daily"]),

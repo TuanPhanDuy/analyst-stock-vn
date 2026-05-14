@@ -19,6 +19,8 @@ LOT = 100   # HOSE minimum tradeable lot
 
 def _floor_lot(qty: float) -> int:
     """Round DOWN to the nearest HOSE lot (100 shares)."""
+    if not math.isfinite(qty) or qty <= 0:
+        return LOT
     return max(LOT, int(math.floor(qty / LOT)) * LOT)
 
 

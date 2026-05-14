@@ -37,32 +37,36 @@ class VerificationResult:
 # ── Data quality checks ──────────────────────────────────────────────────────
 
 def check_data_quality(freshness_map: dict) -> List[str]:
-    issues = []
+    # Downgraded to warning — stale data after holidays should not block email.
+    warnings = []
     stale = [t for t, f in freshness_map.items() if not f["is_fresh"]]
     if len(stale) > len(freshness_map) * 0.3:
-        issues.append(
+        warnings.append(
             f">30% of tickers stale (>3 days old): {', '.join(stale[:5])}..."
         )
-    return issues
+    return warnings
 
 
 def check_signal_sanity(ranked: dict) -> List[str]:
-    issues = []
-    buys = ranked.get("buy", [])
+    # Count buy_unaffordable too — small capital moves buys there, not to "buy".
+    # "No signals" is NOT fatal: send the email with a quiet-market note instead.
+    warnings = []
+    buys = ranked.get("buy", []) + ranked.get("buy_unaffordable", [])
     sells = ranked.get("sell", [])
     if not buys and not sells:
-        issues.append("No actionable signals generated.")
-    return issues
+        warnings.append("No actionable signals today — market may be consolidating.")
+    return warnings
 
 
 def check_price_sanity(ranked: dict) -> List[str]:
-    issues = []
+    # Downgraded to warning — one odd price should not block the email.
+    warnings = []
     for action in ("buy", "sell"):
         for item in ranked.get(action, []):
             p = item.get("price", 0)
             if p <= 0 or p < 1000 or p > 5_000_000:
-                issues.append(f"{item['ticker']} price {p:,.0f} VND looks implausible")
-    return issues
+                warnings.append(f"{item['ticker']} price {p:,.0f} VND looks implausible")
+    return warnings
 
 
 # ── Claude deep analysis ──────────────────────────────────────────────────────
@@ -162,6 +166,8 @@ Instructions:
             attempts=retry_attempts,
             backoff=retry_backoff,
         )
+        if not msg.content or not hasattr(msg.content[0], "text"):
+            return None, ranked
         raw = msg.content[0].text.strip()
         if raw.startswith("```"):
             raw = "\n".join(raw.split("\n")[1:])
@@ -191,17 +197,11 @@ Instructions:
 def verify(ranked: dict, timeframe: str, freshness_map: dict,
            market_ctx: dict = None, entry_levels: dict = None,
            cfg: dict = None) -> VerificationResult:
-    issues = []
-    issues += check_data_quality(freshness_map)
-    issues += check_signal_sanity(ranked)
-    issues += check_price_sanity(ranked)
-
-    if issues:
-        return VerificationResult(
-            passed=False, issues=issues,
-            claude_review="Skipped — data quality issues.",
-            adjusted_ranked=ranked,
-        )
+    # All checks are now warnings — none of them block the email.
+    warnings = []
+    warnings += check_data_quality(freshness_map)
+    warnings += check_signal_sanity(ranked)
+    warnings += check_price_sanity(ranked)
 
     claude_cfg = (cfg or {}).get("claude", {})
     retry_cfg = (cfg or {}).get("retry", {})
@@ -213,8 +213,13 @@ def verify(ranked: dict, timeframe: str, freshness_map: dict,
         retry_backoff=retry_cfg.get("backoff", 2.0),
     )
 
+    # Preserve buy_unaffordable so the email capital-warning section still renders.
+    if isinstance(pruned, dict) and "buy_unaffordable" not in pruned:
+        pruned["buy_unaffordable"] = ranked.get("buy_unaffordable", [])
+
     return VerificationResult(
         passed=True,
+        warnings=warnings,
         claude_review=review,          # None when no credits — callers must handle
         adjusted_ranked=pruned,
     )

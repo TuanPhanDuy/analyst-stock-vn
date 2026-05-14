@@ -99,7 +99,8 @@ def vwap(high: pd.Series, low: pd.Series, close: pd.Series,
     """
     typical_price = (high + low + close) / 3
     tp_vol = typical_price * volume
-    return tp_vol.rolling(period).sum() / volume.rolling(period).sum()
+    vol_sum = volume.rolling(period).sum().replace(0, float("nan"))
+    return tp_vol.rolling(period).sum() / vol_sum
 
 
 def obv(close: pd.Series, volume: pd.Series) -> pd.Series:
@@ -154,6 +155,8 @@ def entry_exit_levels(df: pd.DataFrame, stop_mult: float = 1.5, target_mult: flo
 
     atr_val = float(atr(high, low, close).iloc[-1])
     price = float(close.iloc[-1])
+    if not np.isfinite(atr_val) or atr_val == 0:
+        atr_val = price * 0.02  # fallback: 2% of price
     sr = support_resistance(high, low, close)
 
     entry = price

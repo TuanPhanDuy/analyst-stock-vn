@@ -24,8 +24,8 @@ def analyze(ticker: str, df: pd.DataFrame, cfg: dict) -> Signal:
     score = 0.0
 
     # EMA trend confirmation: EMA-20 vs EMA-50 as a score multiplier
-    ema_bullish = len(ema_short) >= 50 and float(ema_short.iloc[-1]) > float(ema_long.iloc[-1])
-    ema_multiplier = 1.10 if ema_bullish else (0.90 if len(ema_short) >= 50 else 1.0)
+    ema_bullish = float(ema_short.iloc[-1]) > float(ema_long.iloc[-1])
+    ema_multiplier = 1.10 if ema_bullish else 0.90
 
     # Volume confirmation for crossovers
     current_vol_ratio = float(volume_ratio(volume).iloc[-1])

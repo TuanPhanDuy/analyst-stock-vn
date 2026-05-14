@@ -180,9 +180,19 @@ def _signal_table_html(items: list, action: str) -> str:
     emoji = "📈" if action == "buy" else "📉"
     rows = ""
     for item in items[:7]:
-        reasons = "; ".join(
-            s["reason"] for s in item["signals"] if s["action"] != "HOLD"
-        )[:120]
+        if "signals" in item:
+            reasons = "; ".join(
+                s["reason"] for s in item["signals"] if s["action"] != "HOLD"
+            )[:120]
+        else:
+            snaps = item.get("snapshots", [])
+            snap_str = "  ".join(
+                f"{s['date'][5:]}:{s['action'][0]}({s['composite']:+.2f})"
+                for s in snaps
+            )
+            reasons = (f"streak={item.get('streak_days', 0)}d  "
+                       f"consistency={item.get('consistency_score', 0)*100:.0f}%  "
+                       f"{snap_str}")[:120]
         rows += f"""<tr style="border-bottom:1px solid #f5f5f5">
           <td style="padding:6px 10px;font-weight:bold">{item['ticker']}</td>
           <td style="padding:6px 10px;text-align:right">{item['price']:,.0f} ₫</td>
@@ -457,7 +467,81 @@ def _vcbs_guide_html(ranked: dict) -> str:
     """
 
 
-def build_html(ranked: dict, timeframe: str, review) -> str:
+def _portfolio_html(statuses: list) -> str:
+    """Render open positions table with SELL alerts."""
+    if not statuses:
+        return ""
+
+    has_action = any(s.needs_action for s in statuses)
+
+    alert_banner = ""
+    if has_action:
+        alert_banner = """
+    <div style="background:#c0392b;color:white;padding:14px 18px;border-radius:6px;
+                margin-bottom:12px;font-family:sans-serif;font-size:15px;font-weight:bold">
+      🚨 ACTION REQUIRED — A position has hit its stop loss or target.
+      Open VCBS Mobies and place a SELL order today.
+    </div>"""
+
+    rows = ""
+    for s in statuses:
+        p = s.position
+        pnl_color = "#1a7f4b" if s.pnl_pct >= 0 else "#c0392b"
+
+        if s.status == "SELL_STOP":
+            row_bg = "#ffebee"
+            action_cell = '<b style="color:#c0392b;font-size:14px">⚠️ SELL (Stop Hit)</b>'
+        elif s.status == "SELL_TARGET":
+            row_bg = "#e8f5e9"
+            action_cell = '<b style="color:#1a7f4b;font-size:14px">🎯 SELL (Target Hit)</b>'
+        elif s.status == "WATCH":
+            row_bg = "#fff8e1"
+            action_cell = '<span style="color:#e67e22;font-weight:bold">⚡ WATCH</span>'
+        else:
+            row_bg = "white"
+            action_cell = '<span style="color:#555">✓ HOLD</span>'
+
+        qty_note = f"<br><span style='color:#888;font-size:11px'>{p.qty:,} shares</span>" if p.qty else ""
+        pnl_vnd = f"<br><span style='font-size:11px'>{s.pnl_vnd:+,.0f} ₫</span>" if p.qty else ""
+
+        rows += f"""
+        <tr style="background:{row_bg};border-bottom:1px solid #eee">
+          <td style="padding:10px;font-weight:bold;font-size:15px">{p.ticker}</td>
+          <td style="padding:10px;font-size:12px;color:#555">{p.buy_date}<br>
+            <b>{p.buy_price:,.0f} ₫</b>{qty_note}</td>
+          <td style="padding:10px;font-size:15px;font-weight:bold">{s.current_price:,.0f} ₫</td>
+          <td style="padding:10px;color:{pnl_color};font-weight:bold">{s.pnl_pct:+.2f}%{pnl_vnd}</td>
+          <td style="padding:10px;font-size:12px">
+            <span style="color:#c0392b">{p.stop_loss:,.0f}</span>
+            <br><span style="color:#888;font-size:11px">{s.pct_from_stop:+.1f}% away</span>
+          </td>
+          <td style="padding:10px;font-size:12px">
+            <span style="color:#1a7f4b">{p.target:,.0f}</span>
+            <br><span style="color:#888;font-size:11px">{s.pct_from_target:+.1f}% away</span>
+          </td>
+          <td style="padding:10px">{action_cell}</td>
+        </tr>"""
+
+    return f"""
+    <h3 style="color:#333;margin-top:28px">💼 My Portfolio</h3>
+    {alert_banner}
+    <table style="border-collapse:collapse;width:100%;font-family:sans-serif;font-size:13px">
+      <thead>
+        <tr style="background:#f0f0f0">
+          <th style="padding:8px 10px;text-align:left">Ticker</th>
+          <th style="padding:8px 10px;text-align:left">Bought</th>
+          <th style="padding:8px 10px;text-align:left">Price Now</th>
+          <th style="padding:8px 10px;text-align:left">P&amp;L</th>
+          <th style="padding:8px 10px;text-align:left">Stop Loss</th>
+          <th style="padding:8px 10px;text-align:left">Target</th>
+          <th style="padding:8px 10px;text-align:left">Action</th>
+        </tr>
+      </thead>
+      <tbody>{rows}</tbody>
+    </table>"""
+
+
+def build_html(ranked: dict, timeframe: str, review, portfolio_statuses: list = None) -> str:
     today = date.today().strftime("%B %d, %Y")
 
     # review is a dict (Claude result), None (no credits), or str (legacy fallback)
@@ -501,6 +585,7 @@ def build_html(ranked: dict, timeframe: str, review) -> str:
       </h2>
       {_vnindex_html(vnindex_data)}
       {_breadth_html(breadth_data)}
+      {_portfolio_html(portfolio_statuses or [])}
       {summary_block}
       {_top_picks_html(top_picks)}
       {_capital_warning_html(ranked, market_ctx.get("capital", 0) if isinstance(market_ctx, dict) else 0)}
@@ -515,7 +600,8 @@ def build_html(ranked: dict, timeframe: str, review) -> str:
     </body></html>"""
 
 
-def send(ranked: dict, timeframe: str, review, market_ctx: dict = None) -> None:
+def send(ranked: dict, timeframe: str, review, market_ctx: dict = None,
+         portfolio_statuses: list = None) -> None:
     gmail_user = os.environ.get("GMAIL_USER", "")
     gmail_app_password = os.environ.get("GMAIL_APP_PASSWORD", "")
     to_addr = os.environ.get("NOTIFY_EMAIL", "")
@@ -531,23 +617,36 @@ def send(ranked: dict, timeframe: str, review, market_ctx: dict = None) -> None:
     if isinstance(review, dict) and market_ctx:
         review["_market_ctx"] = market_ctx
 
+    # Urgent subject prefix when a position needs action
+    sell_alerts = [s for s in (portfolio_statuses or []) if s.needs_action]
+    if sell_alerts:
+        tickers = ", ".join(s.position.ticker for s in sell_alerts)
+        subject = f"🚨 [VN Stock] {today} · SELL ALERT: {tickers}"
+    else:
+        subject = f"[VN Stock] {today} · {buy_count} Buy signals · Top: {top_buy}"
+
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"[VN Stock] {today} · {buy_count} Buy signals · Top: {top_buy}"
+    msg["Subject"] = subject
     msg["From"] = f"VN Stock Scanner <{gmail_user}>"
     msg["To"] = to_addr
 
-    # Plain text fallback
+    # Plain text — portfolio section first if actionable
+    plain = ""
+    if sell_alerts:
+        plain += "⚠️ SELL ALERT\n" + "\n".join(
+            f"  {s.position.ticker}: {s.message}" for s in sell_alerts
+        ) + "\n\n"
     if isinstance(review, dict):
-        plain = review.get("market_summary", "") + "\n\n"
+        plain += review.get("market_summary", "") + "\n\n"
         for p in review.get("top_picks", []):
-            plain += (f"{p['action']} {p['ticker']}: {p['thesis']} "
+            plain += (f"{p.get('action','?')} {p.get('ticker','?')}: {p.get('thesis','')} "
                       f"Entry {p.get('entry',0):,.0f} Stop {p.get('stop_loss',0):,.0f} "
                       f"Target {p.get('target',0):,.0f}\n")
     else:
-        plain = str(review)
+        plain += str(review)
 
     msg.attach(MIMEText(plain, "plain"))
-    msg.attach(MIMEText(build_html(ranked, timeframe, review), "html"))
+    msg.attach(MIMEText(build_html(ranked, timeframe, review, portfolio_statuses), "html"))
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(gmail_user, gmail_app_password)
