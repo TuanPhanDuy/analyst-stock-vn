@@ -3,12 +3,12 @@ name: Daily VN Stock Scan
 on:
   schedule:
     - cron: '0 22 * * 0-4'  # 5:00 AM ICT (UTC+7) Mon–Fri; fires at 22:00 UTC Sun–Thu to absorb GitHub's typical 2–3 h queue delay
-  workflow_dispatch:          # allow manual trigger from GitHub UI
+  workflow_dispatch:          # manual trigger: GitHub UI → Actions → Run workflow
 
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50       # trading desk adds ~1 extra Claude call; 50 min is safe
 
     steps:
       - uses: actions/checkout@v4
@@ -21,10 +21,17 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run daily scan
+      - name: Run daily scan & send email
         run: python notify_daily.py
+        timeout-minutes: 45
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Daily scan failed on $(date '+%Y-%m-%d %H:%M UTC')"
+          echo "Check the Actions log: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
