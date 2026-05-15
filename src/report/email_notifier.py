@@ -248,9 +248,9 @@ def _vcbs_guide_html(ranked: dict) -> str:
     Step-by-step VCBS Mobies buy guide pre-filled with today's affordable BUY signals,
     including risk-based quantity suggestions.
     """
-    buys = [i for i in ranked.get("buy", []) if i["recommendation"] in ("BUY", "STRONG BUY")][:3]
+    buys = [i for i in ranked.get("buy", []) if i["recommendation"] in ("BUY", "STRONG BUY")][:1]
     if not buys:
-        buys = ranked.get("buy", [])[:3]
+        buys = ranked.get("buy", [])[:1]
     if not buys:
         return ""
 
@@ -374,95 +374,9 @@ def _vcbs_guide_html(ranked: dict) -> str:
           </div>
         </div>"""
 
-    # Shared guidance block
     return f"""
-    <h3 style="color:#1565c0;margin-top:32px">📱 How to Execute on VCBS Mobies</h3>
-
+    <h3 style="color:#1565c0;margin-top:28px">📱 Place Order — VCBS Mobies</h3>
     {_market_status_banner()}
-    <div style="background:#e3f2fd;border-left:4px solid #1565c0;padding:12px 16px;
-                margin:0 0 12px 0;font-family:sans-serif;font-size:13px">
-      <b>⏰ HOSE Trading Hours (Ho Chi Minh City time)</b><br>
-      <table style="margin-top:6px;border-collapse:collapse;font-size:12px">
-        <tr>
-          <td style="padding:3px 12px 3px 0;color:#555">Pre-open (ATO)</td>
-          <td><b>9:00 – 9:15 AM</b></td>
-          <td style="padding-left:16px;color:#888">ATO orders only — no LO yet</td>
-        </tr>
-        <tr style="background:#e8f5e9">
-          <td style="padding:3px 12px 3px 0;color:#1a7f4b"><b>Morning session ✅</b></td>
-          <td><b>9:15 – 11:30 AM</b></td>
-          <td style="padding-left:16px;color:#1a7f4b"><b>Best window — place LO orders here</b></td>
-        </tr>
-        <tr>
-          <td style="padding:3px 12px 3px 0;color:#555">Lunch break</td>
-          <td><b>11:30 AM – 1:00 PM</b></td>
-          <td style="padding-left:16px;color:#c0392b">❌ Market closed — orders rejected</td>
-        </tr>
-        <tr style="background:#e8f5e9">
-          <td style="padding:3px 12px 3px 0;color:#1a7f4b"><b>Afternoon session ✅</b></td>
-          <td><b>1:00 – 2:30 PM</b></td>
-          <td style="padding-left:16px;color:#1a7f4b"><b>LO orders accepted</b></td>
-        </tr>
-        <tr>
-          <td style="padding:3px 12px 3px 0;color:#555">ATC closing</td>
-          <td><b>2:30 – 2:45 PM</b></td>
-          <td style="padding-left:16px;color:#888">ATC orders only — LO no longer accepted</td>
-        </tr>
-        <tr style="background:#fce4ec">
-          <td style="padding:3px 12px 3px 0;color:#c0392b"><b>Market closed ❌</b></td>
-          <td><b>2:45 PM onwards</b></td>
-          <td style="padding-left:16px;color:#c0392b">
-            <b>All orders rejected — "OMS process is not valid"</b>
-          </td>
-        </tr>
-      </table>
-    </div>
-
-    <div style="background:#fff8e1;border-left:4px solid #f9a825;padding:12px 16px;
-                margin:0 0 12px 0;font-family:sans-serif;font-size:13px">
-      <b>💰 Position Sizing (safe defaults)</b><br>
-      <ul style="margin:6px 0;padding-left:20px;line-height:1.8;color:#333">
-        <li>Max <b>15% of portfolio</b> per stock — never go all-in on one signal</li>
-        <li>HOSE minimum lot: <b>100 shares</b> — orders must be multiples of 100</li>
-        <li>Settlement: <b>T+2</b> — cash is deducted immediately, shares arrive in 2 days</li>
-        <li>If signal is <b>WATCH</b>: use ≤5% position — weak signal, higher risk</li>
-        <li>Set your stop loss immediately after the order fills (see target levels above)</li>
-      </ul>
-    </div>
-
-    <div style="background:#fce4ec;border-left:4px solid #c62828;padding:12px 16px;
-                margin:0 0 16px 0;font-family:sans-serif;font-size:13px">
-      <b>⚠️ Order Type Quick Reference</b><br>
-      <table style="margin-top:6px;border-collapse:collapse;font-size:12px;width:100%">
-        <tr style="background:#f5f5f5">
-          <th style="padding:4px 10px;text-align:left">Type</th>
-          <th style="padding:4px 10px;text-align:left">When to use</th>
-          <th style="padding:4px 10px;text-align:left">Risk</th>
-        </tr>
-        <tr>
-          <td style="padding:4px 10px"><b>LO</b> (Lệnh giới hạn)</td>
-          <td style="padding:4px 10px">Normal trading hours — you control the price</td>
-          <td style="padding:4px 10px;color:#555">May not fill if price moves away</td>
-        </tr>
-        <tr style="background:#f9f9f9">
-          <td style="padding:4px 10px"><b>ATO</b></td>
-          <td style="padding:4px 10px">Enter at open — fastest fill at 9:15 AM price</td>
-          <td style="padding:4px 10px;color:#555">No price control — can gap up/down</td>
-        </tr>
-        <tr>
-          <td style="padding:4px 10px"><b>ATC</b></td>
-          <td style="padding:4px 10px">Enter at official closing price</td>
-          <td style="padding:4px 10px;color:#555">No price control — closing only</td>
-        </tr>
-        <tr style="background:#f9f9f9">
-          <td style="padding:4px 10px"><b>MP</b></td>
-          <td style="padding:4px 10px">HNX stocks only — immediate market fill</td>
-          <td style="padding:4px 10px;color:#555">HOSE does not support MP orders</td>
-        </tr>
-      </table>
-    </div>
-
-    <b style="font-family:sans-serif;font-size:14px">Today's buy orders to place:</b>
     {ticker_cards}
     """
 
@@ -541,7 +455,147 @@ def _portfolio_html(statuses: list) -> str:
     </table>"""
 
 
-def build_html(ranked: dict, timeframe: str, review, portfolio_statuses: list = None) -> str:
+def _regime_banner_html(regime_result: dict) -> str:
+    """Full-width regime banner with key metrics."""
+    if not regime_result or regime_result.get("regime") in (None, "UNKNOWN"):
+        return ""
+    regime = regime_result.get("regime", "UNKNOWN")
+    conf = regime_result.get("confidence", 0)
+    adx = regime_result.get("adx")
+    r1m = regime_result.get("r1m_pct")
+    dd = regime_result.get("drawdown_from_52w_pct")
+    ma50 = regime_result.get("ma50")
+    ma200 = regime_result.get("ma200")
+
+    color_map = {
+        "BULL": ("#1a7f4b", "#e8f5e9", "↑ BULL MARKET"),
+        "BEAR": ("#c0392b", "#ffebee", "↓ BEAR MARKET"),
+        "SIDEWAYS": ("#e67e22", "#fff8e1", "↔ SIDEWAYS"),
+        "UNKNOWN": ("#888", "#f5f5f5", "? UNKNOWN"),
+    }
+    border, bg, label = color_map.get(regime, color_map["UNKNOWN"])
+
+    metrics = []
+    if conf is not None:
+        metrics.append(f"Confidence: <b>{conf:.0%}</b>")
+    if adx is not None:
+        metrics.append(f"ADX: <b>{adx:.1f}</b>")
+    if r1m is not None:
+        color = "#1a7f4b" if r1m >= 0 else "#c0392b"
+        metrics.append(f"1M return: <b style='color:{color}'>{r1m:+.1f}%</b>")
+    if dd is not None:
+        metrics.append(f"From 52w high: <b style='color:#c0392b'>{dd:.1f}%</b>")
+    if ma50 and ma200:
+        golden = ma50 > ma200
+        cross = "Golden Cross ✓" if golden else "Death Cross ✗"
+        cross_color = "#1a7f4b" if golden else "#c0392b"
+        metrics.append(f"MA: <span style='color:{cross_color}'><b>{cross}</b></span>")
+
+    metrics_str = "&nbsp;·&nbsp;".join(metrics)
+    return f"""
+    <div style="background:{bg};border-left:5px solid {border};padding:12px 18px;
+                margin-bottom:14px;font-family:sans-serif;font-size:13px;border-radius:0 6px 6px 0">
+      <span style="color:{border};font-size:16px;font-weight:bold">{label}</span>
+      &nbsp;&nbsp;{metrics_str}
+    </div>"""
+
+
+def _sector_rotation_html(rotation_result: dict) -> str:
+    """Compact sector rotation summary with ROTATE_IN / ROTATE_OUT tags."""
+    if not rotation_result or not rotation_result.get("rankings"):
+        return ""
+    rankings = rotation_result["rankings"]
+    rotate_in = rotation_result.get("rotate_into", [])
+    rotate_out = rotation_result.get("rotate_out_of", [])
+
+    rows = ""
+    for r in rankings[:8]:
+        sector = r.get("sector", "?")
+        score = r.get("score", 0)
+        ret_1m = r.get("avg_return_1m", 0)
+        signal = r.get("signal", "HOLD")
+        if signal == "ROTATE_IN":
+            sig_html = '<span style="color:#1a7f4b;font-weight:bold">↑ ROTATE IN</span>'
+        elif signal == "ROTATE_OUT":
+            sig_html = '<span style="color:#c0392b;font-weight:bold">↓ ROTATE OUT</span>'
+        else:
+            sig_html = '<span style="color:#888">→ HOLD</span>'
+        ret_color = "#1a7f4b" if ret_1m >= 0 else "#c0392b"
+        rows += f"""<tr style="border-bottom:1px solid #eee">
+          <td style="padding:5px 10px">{sector}</td>
+          <td style="padding:5px 10px;text-align:right;color:{ret_color};font-weight:bold">{ret_1m:+.1f}%</td>
+          <td style="padding:5px 10px">{sig_html}</td>
+        </tr>"""
+
+    in_str = ", ".join(rotate_in[:3]) if rotate_in else "—"
+    out_str = ", ".join(rotate_out[:3]) if rotate_out else "—"
+
+    return f"""
+    <h3 style="color:#333;margin-top:24px">🔄 Sector Rotation</h3>
+    <div style="font-family:sans-serif;font-size:13px;margin-bottom:8px">
+      <span style="color:#1a7f4b">Rotate into:</span> <b>{in_str}</b>
+      &nbsp;&nbsp;
+      <span style="color:#c0392b">Rotate out of:</span> <b>{out_str}</b>
+    </div>
+    <table style="border-collapse:collapse;font-family:sans-serif;font-size:13px;width:380px">
+      <thead>
+        <tr style="background:#f0f0f0">
+          <th style="padding:5px 10px;text-align:left">Sector</th>
+          <th style="padding:5px 10px;text-align:right">1M Return</th>
+          <th style="padding:5px 10px;text-align:left">Signal</th>
+        </tr>
+      </thead>
+      <tbody>{rows}</tbody>
+    </table>"""
+
+
+def _risk_summary_html(risk_report: dict) -> str:
+    """Compact risk metrics block."""
+    if not risk_report:
+        return ""
+    pvar = risk_report.get("portfolio_var_95", {})
+    pbeta = risk_report.get("portfolio_beta", {})
+    flags = risk_report.get("flags", [])
+
+    if not pvar and not pbeta:
+        return ""
+
+    items = []
+    if pvar.get("var_pct") is not None:
+        items.append(f"VaR 95% (1d): <b style='color:#c0392b'>{pvar['var_pct']:.2f}%</b>")
+    if pvar.get("cvar_pct") is not None:
+        items.append(f"CVaR 95%: <b style='color:#c0392b'>{pvar['cvar_pct']:.2f}%</b>")
+    if pbeta.get("portfolio_beta") is not None:
+        b = pbeta["portfolio_beta"]
+        bcolor = "#c0392b" if b > 1.3 else ("#1a7f4b" if b < 0.8 else "#333")
+        items.append(f"Beta: <b style='color:{bcolor}'>{b:.2f}</b>")
+    interp = pbeta.get("interpretation", "")
+    if interp:
+        items.append(f"Profile: <b>{interp}</b>")
+
+    flags_html = ""
+    if flags:
+        flag_items = "".join(f"<li style='color:#c0392b'>{f}</li>" for f in flags)
+        flags_html = f"<ul style='margin:6px 0;padding-left:20px;font-size:12px'>{flag_items}</ul>"
+
+    metrics_str = "&nbsp;·&nbsp;".join(items)
+    return f"""
+    <div style="background:#fff3e0;border-left:4px solid #e65100;padding:12px 16px;
+                margin:14px 0;font-family:sans-serif;font-size:13px">
+      <b>📊 Portfolio Risk</b>&nbsp;&nbsp;{metrics_str}
+      {flags_html}
+    </div>"""
+
+
+def build_html(
+    ranked: dict,
+    timeframe: str,
+    review,
+    portfolio_statuses: list = None,
+    regime_result: dict = None,
+    sector_rotation: dict = None,
+    risk_report: dict = None,
+) -> str:
     today = date.today().strftime("%B %d, %Y")
 
     # review is a dict (Claude result), None (no credits), or str (legacy fallback)
@@ -578,30 +632,41 @@ def build_html(ranked: dict, timeframe: str, review, portfolio_statuses: list = 
         <div style="font-family:sans-serif;font-size:13px;color:#555;margin:8px 0;
                     font-style:italic">📌 {sectors_note}</div>"""
 
-    return f"""<html><body style="font-family:sans-serif;max-width:900px;margin:auto;padding:24px">
-      <h2 style="color:#1a1a1a;border-bottom:2px solid #eee;padding-bottom:10px">
+    return f"""<html><body style="font-family:sans-serif;max-width:820px;margin:auto;padding:20px">
+      <h2 style="color:#1a1a1a;border-bottom:2px solid #eee;padding-bottom:10px;margin-bottom:14px">
         🇻🇳 VN Stock Daily Brief
         <span style="font-size:14px;font-weight:normal;color:#888">— {timeframe.upper()} · {today}</span>
       </h2>
+
+      {_regime_banner_html(regime_result or {})}
       {_vnindex_html(vnindex_data)}
-      {_breadth_html(breadth_data)}
+
       {_portfolio_html(portfolio_statuses or [])}
+
       {summary_block}
       {_top_picks_html(top_picks)}
+
       {_capital_warning_html(ranked, market_ctx.get("capital", 0) if isinstance(market_ctx, dict) else 0)}
       {_vcbs_guide_html(ranked)}
-      {_sector_heatmap_html(sectors_data)}
-      {_signal_table_html(ranked.get('buy', []), 'buy')}
-      {_signal_table_html(ranked.get('sell', []), 'sell')}
-      <p style="color:#bbb;font-size:11px;margin-top:36px;border-top:1px solid #eee;padding-top:12px">
-        Auto-generated by analyst-stock-vn · VN30 universe · Not financial advice. ·
-        Signals: RSI · MACD · Stochastic · ADX · Bollinger · MA20/60 · Volume
+
+      {_sector_rotation_html(sector_rotation or {})}
+
+      <p style="color:#bbb;font-size:11px;margin-top:32px;border-top:1px solid #eee;padding-top:10px">
+        Auto-generated by analyst-stock-vn · VN30 universe · Not financial advice.
       </p>
     </body></html>"""
 
 
-def send(ranked: dict, timeframe: str, review, market_ctx: dict = None,
-         portfolio_statuses: list = None) -> None:
+def send(
+    ranked: dict,
+    timeframe: str,
+    review,
+    market_ctx: dict = None,
+    portfolio_statuses: list = None,
+    regime_result: dict = None,
+    sector_rotation: dict = None,
+    risk_report: dict = None,
+) -> None:
     gmail_user = os.environ.get("GMAIL_USER", "")
     gmail_app_password = os.environ.get("GMAIL_APP_PASSWORD", "")
     to_addr = os.environ.get("NOTIFY_EMAIL", "")
@@ -646,7 +711,10 @@ def send(ranked: dict, timeframe: str, review, market_ctx: dict = None,
         plain += str(review)
 
     msg.attach(MIMEText(plain, "plain"))
-    msg.attach(MIMEText(build_html(ranked, timeframe, review, portfolio_statuses), "html"))
+    msg.attach(MIMEText(
+        build_html(ranked, timeframe, review, portfolio_statuses, regime_result, sector_rotation, risk_report),
+        "html",
+    ))
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(gmail_user, gmail_app_password)
