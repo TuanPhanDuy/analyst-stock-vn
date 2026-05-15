@@ -587,6 +587,173 @@ def _risk_summary_html(risk_report: dict) -> str:
     </div>"""
 
 
+def _institutional_brief_html(brief: dict) -> str:
+    """
+    Primary section of the pre-market email.
+    Shows Head of Trading directive + decision table + agent consensus.
+    """
+    if not brief or not brief.get("head_directive"):
+        return ""
+
+    directive = brief.get("head_directive", "")
+    decisions = brief.get("decisions", [])
+    summaries = brief.get("agent_summaries", {})
+    risk_alerts = brief.get("risk_alerts", [])
+    themes = brief.get("key_themes", [])
+    exec_note = brief.get("execution_note", "")
+
+    # ── Directive banner ──────────────────────────────────────────────────────
+    stance = brief.get("market_stance", "")
+    stance_upper = stance.upper() if stance else ""
+    if "BULL" in stance_upper:
+        dir_color, dir_bg = "#1a7f4b", "#e8f5e9"
+    elif "BEAR" in stance_upper:
+        dir_color, dir_bg = "#c0392b", "#ffebee"
+    else:
+        dir_color, dir_bg = "#1565c0", "#e3f2fd"
+
+    directive_html = f"""
+    <div style="background:{dir_bg};border-left:5px solid {dir_color};padding:14px 18px;
+                margin-bottom:16px;font-family:sans-serif;border-radius:0 6px 6px 0">
+      <div style="font-size:11px;color:{dir_color};font-weight:bold;letter-spacing:1px;
+                  text-transform:uppercase;margin-bottom:4px">Head of Trading — Daily Directive</div>
+      <div style="font-size:15px;font-weight:bold;color:#1a1a1a">{directive}</div>
+    </div>"""
+
+    # ── Decision table ────────────────────────────────────────────────────────
+    action_styles = {
+        "BUY":   ("#1a7f4b", "#e8f5e9", "↑ BUY"),
+        "SELL":  ("#c0392b", "#ffebee", "↓ SELL"),
+        "EXIT":  ("#c0392b", "#ffebee", "✕ EXIT"),
+        "TRIM":  ("#e67e22", "#fff8e1", "◀ TRIM"),
+        "HOLD":  ("#555",    "#f9f9f9", "— HOLD"),
+        "WATCH": ("#888",    "#f5f5f5", "◎ WATCH"),
+    }
+
+    rows = ""
+    for d in decisions:
+        action = d.get("action", "HOLD")
+        ticker = d.get("ticker", "?")
+        entry = d.get("entry", 0)
+        stop = d.get("stop", 0)
+        target = d.get("target", 0)
+        qty = d.get("qty", 0)
+        conviction = d.get("conviction", "LOW")
+        rationale = d.get("rationale", "")
+        agent = d.get("agent", "")
+
+        ac, abg, alabel = action_styles.get(action, action_styles["HOLD"])
+        conv_color = {"HIGH": "#1a7f4b", "MEDIUM": "#e67e22", "LOW": "#888"}.get(conviction, "#888")
+
+        entry_str = f"{entry:,.0f} ₫" if entry else "—"
+        stop_str = f"<span style='color:#c0392b'>{stop:,.0f} ₫</span>" if stop else "—"
+        target_str = f"<span style='color:#1a7f4b'>{target:,.0f} ₫</span>" if target else "—"
+        qty_str = f"{qty:,}" if qty else "—"
+
+        rows += f"""
+        <tr style="border-bottom:1px solid #eee">
+          <td style="padding:10px 12px;background:{abg}">
+            <span style="color:{ac};font-weight:bold;font-size:13px">{alabel}</span>
+          </td>
+          <td style="padding:10px 12px;font-weight:bold;font-size:16px">{ticker}</td>
+          <td style="padding:10px 12px;font-size:13px">{entry_str}</td>
+          <td style="padding:10px 12px;font-size:13px">{stop_str}</td>
+          <td style="padding:10px 12px;font-size:13px">{target_str}</td>
+          <td style="padding:10px 12px;text-align:center">
+            <span style="color:{conv_color};font-size:12px;font-weight:bold">{conviction}</span>
+          </td>
+          <td style="padding:10px 12px;font-size:12px;color:#555;max-width:200px">{rationale}</td>
+        </tr>"""
+
+    table_html = ""
+    if rows:
+        table_html = f"""
+        <h3 style="color:#1a1a1a;margin:20px 0 8px 0;font-size:14px;
+                   letter-spacing:0.5px;text-transform:uppercase;font-family:sans-serif">
+          Today's Decisions
+        </h3>
+        <table style="border-collapse:collapse;width:100%;font-family:sans-serif;font-size:13px;
+                      border:1px solid #e0e0e0;border-radius:6px;overflow:hidden">
+          <thead>
+            <tr style="background:#f5f5f5;border-bottom:2px solid #ddd">
+              <th style="padding:8px 12px;text-align:left;font-size:11px;color:#666">ACTION</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;color:#666">TICKER</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;color:#666">ENTRY</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;color:#666">STOP</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;color:#666">TARGET</th>
+              <th style="padding:8px 12px;text-align:center;font-size:11px;color:#666">CONVICTION</th>
+              <th style="padding:8px 12px;text-align:left;font-size:11px;color:#666">RATIONALE</th>
+            </tr>
+          </thead>
+          <tbody>{rows}</tbody>
+        </table>"""
+
+    # ── Risk alerts ───────────────────────────────────────────────────────────
+    alerts_html = ""
+    if risk_alerts:
+        items = "".join(
+            f'<div style="margin:4px 0">⚠ {a}</div>' for a in risk_alerts
+        )
+        alerts_html = f"""
+        <div style="background:#fff3e0;border-left:4px solid #e65100;padding:12px 16px;
+                    margin:14px 0;font-family:sans-serif;font-size:13px;color:#c0392b">
+          <b>Risk Alerts</b><br>{items}
+        </div>"""
+
+    # ── Agent consensus ───────────────────────────────────────────────────────
+    agent_labels = [
+        ("macro",      "Macro"),
+        ("research",   "Research"),
+        ("quant",      "Quant"),
+        ("portfolio",  "Portfolio"),
+        ("risk",       "Risk Mgmt"),
+        ("compliance", "Compliance"),
+    ]
+    consensus_rows = ""
+    for key, label in agent_labels:
+        note = summaries.get(key, "")
+        if not note:
+            continue
+        is_clear = "CLEAR" in note.upper() and key == "compliance"
+        is_alert = any(w in note.upper() for w in ("ALERT", "BREACH", "WARN", "REJECT"))
+        row_color = "#f5f5f5"
+        note_color = "#c0392b" if is_alert else ("#1a7f4b" if is_clear else "#333")
+        consensus_rows += f"""
+        <tr style="border-bottom:1px solid #eee;background:{row_color}">
+          <td style="padding:7px 12px;font-size:11px;color:#888;font-weight:bold;
+                     white-space:nowrap;width:90px">{label}</td>
+          <td style="padding:7px 12px;font-size:13px;color:{note_color}">{note}</td>
+        </tr>"""
+
+    consensus_html = ""
+    if consensus_rows:
+        consensus_html = f"""
+        <h3 style="color:#1a1a1a;margin:20px 0 8px 0;font-size:14px;
+                   letter-spacing:0.5px;text-transform:uppercase;font-family:sans-serif">
+          Agent Consensus
+        </h3>
+        <table style="border-collapse:collapse;width:100%;font-family:sans-serif;
+                      border:1px solid #e0e0e0">
+          <tbody>{consensus_rows}</tbody>
+        </table>"""
+
+    # ── Themes + execution note ───────────────────────────────────────────────
+    footer_bits = []
+    if themes:
+        footer_bits.append("Key themes: " + " · ".join(f"<b>{t}</b>" for t in themes))
+    if exec_note:
+        footer_bits.append(f"Execution: {exec_note}")
+    footer_html = ""
+    if footer_bits:
+        footer_html = f"""
+        <div style="margin-top:14px;font-family:sans-serif;font-size:12px;color:#555;
+                    padding:10px 14px;background:#f9f9f9;border-radius:4px">
+          {" &nbsp;|&nbsp; ".join(footer_bits)}
+        </div>"""
+
+    return directive_html + table_html + alerts_html + consensus_html + footer_html
+
+
 def build_html(
     ranked: dict,
     timeframe: str,
@@ -595,6 +762,7 @@ def build_html(
     regime_result: dict = None,
     sector_rotation: dict = None,
     risk_report: dict = None,
+    institutional_brief: dict = None,
 ) -> str:
     today = date.today().strftime("%B %d, %Y")
 
@@ -633,26 +801,33 @@ def build_html(
                     font-style:italic">📌 {sectors_note}</div>"""
 
     return f"""<html><body style="font-family:sans-serif;max-width:820px;margin:auto;padding:20px">
-      <h2 style="color:#1a1a1a;border-bottom:2px solid #eee;padding-bottom:10px;margin-bottom:14px">
-        🇻🇳 VN Stock Daily Brief
-        <span style="font-size:14px;font-weight:normal;color:#888">— {timeframe.upper()} · {today}</span>
-      </h2>
+      <table style="width:100%;margin-bottom:14px;border-collapse:collapse">
+        <tr>
+          <td style="font-size:18px;font-weight:bold;color:#1a1a1a">
+            🇻🇳 VN Trading Desk — Pre-Market Brief
+          </td>
+          <td style="text-align:right;font-size:12px;color:#888;vertical-align:bottom">
+            {timeframe.upper()} &nbsp;·&nbsp; {today}
+          </td>
+        </tr>
+      </table>
+      <hr style="border:none;border-top:2px solid #eee;margin:0 0 16px 0">
 
-      {_regime_banner_html(regime_result or {})}
-      {_vnindex_html(vnindex_data)}
+      {_institutional_brief_html(institutional_brief or {})}
 
       {_portfolio_html(portfolio_statuses or [])}
-
-      {summary_block}
-      {_top_picks_html(top_picks)}
 
       {_capital_warning_html(ranked, market_ctx.get("capital", 0) if isinstance(market_ctx, dict) else 0)}
       {_vcbs_guide_html(ranked)}
 
-      {_sector_rotation_html(sector_rotation or {})}
+      <div style="margin-top:20px;padding-top:14px;border-top:1px solid #eee">
+        {_regime_banner_html(regime_result or {})}
+        {_vnindex_html(vnindex_data)}
+        {_sector_rotation_html(sector_rotation or {})}
+      </div>
 
-      <p style="color:#bbb;font-size:11px;margin-top:32px;border-top:1px solid #eee;padding-top:10px">
-        Auto-generated by analyst-stock-vn · VN30 universe · Not financial advice.
+      <p style="color:#bbb;font-size:11px;margin-top:24px;border-top:1px solid #eee;padding-top:10px">
+        Institutional Trading Desk · VN30 universe · Not financial advice · {today}
       </p>
     </body></html>"""
 
@@ -666,6 +841,7 @@ def send(
     regime_result: dict = None,
     sector_rotation: dict = None,
     risk_report: dict = None,
+    institutional_brief: dict = None,
 ) -> None:
     gmail_user = os.environ.get("GMAIL_USER", "")
     gmail_app_password = os.environ.get("GMAIL_APP_PASSWORD", "")
@@ -682,37 +858,41 @@ def send(
     if isinstance(review, dict) and market_ctx:
         review["_market_ctx"] = market_ctx
 
-    # Urgent subject prefix when a position needs action
+    # Subject: sell alert takes priority; else show head directive
     sell_alerts = [s for s in (portfolio_statuses or []) if s.needs_action]
     if sell_alerts:
         tickers = ", ".join(s.position.ticker for s in sell_alerts)
-        subject = f"🚨 [VN Stock] {today} · SELL ALERT: {tickers}"
+        subject = f"🚨 SELL ALERT: {tickers} — {today}"
+    elif institutional_brief and institutional_brief.get("head_directive"):
+        directive_short = institutional_brief["head_directive"][:60]
+        subject = f"[VN Desk] {today} · {directive_short}"
     else:
-        subject = f"[VN Stock] {today} · {buy_count} Buy signals · Top: {top_buy}"
+        subject = f"[VN Desk] {today} · {buy_count} signals · Top: {top_buy}"
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = f"VN Stock Scanner <{gmail_user}>"
+    msg["From"] = f"VN Trading Desk <{gmail_user}>"
     msg["To"] = to_addr
 
-    # Plain text — portfolio section first if actionable
+    # Plain text fallback
     plain = ""
     if sell_alerts:
-        plain += "⚠️ SELL ALERT\n" + "\n".join(
+        plain += "SELL ALERT\n" + "\n".join(
             f"  {s.position.ticker}: {s.message}" for s in sell_alerts
         ) + "\n\n"
-    if isinstance(review, dict):
-        plain += review.get("market_summary", "") + "\n\n"
-        for p in review.get("top_picks", []):
-            plain += (f"{p.get('action','?')} {p.get('ticker','?')}: {p.get('thesis','')} "
-                      f"Entry {p.get('entry',0):,.0f} Stop {p.get('stop_loss',0):,.0f} "
-                      f"Target {p.get('target',0):,.0f}\n")
-    else:
-        plain += str(review)
+    if institutional_brief:
+        plain += institutional_brief.get("head_directive", "") + "\n\n"
+        for d in institutional_brief.get("decisions", []):
+            plain += (f"{d.get('action','?'):5s} {d.get('ticker','?'):6s} "
+                      f"entry={d.get('entry',0):,.0f}  stop={d.get('stop',0):,.0f}  "
+                      f"target={d.get('target',0):,.0f}  [{d.get('conviction','?')}]\n")
+    elif isinstance(review, dict):
+        plain += review.get("market_summary", "") + "\n"
 
     msg.attach(MIMEText(plain, "plain"))
     msg.attach(MIMEText(
-        build_html(ranked, timeframe, review, portfolio_statuses, regime_result, sector_rotation, risk_report),
+        build_html(ranked, timeframe, review, portfolio_statuses,
+                   regime_result, sector_rotation, risk_report, institutional_brief),
         "html",
     ))
 
