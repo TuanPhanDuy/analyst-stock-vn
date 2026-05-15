@@ -25,13 +25,16 @@ multiday:
   medium_conviction_min_consistency: 0.50 # consistency_score threshold for MEDIUM label
 
 sectors:
-  Banking:     [VCB, BID, CTG, TCB, VPB, MBB, ACB, STB, HDB, SHB, EIB]
-  Real Estate: [VHM, VIC, KDH, TCH]
-  Securities:  [SSI, VCI, HCM, VND]
-  Consumer:    [VNM, MSN, MWG, SAB, PNJ]
-  Industrial:  [HPG, REE]
-  Energy:      [GAS, PLX, POW]
-  Technology:  [FPT]
+  Banking:     [VCB, BID, CTG, TCB, VPB, MBB, ACB, STB, HDB, SHB, EIB, LPB, MSB, OCB, TPB, VIB]
+  Real Estate: [VHM, VIC, KDH, TCH, NVL, PDR, DXG, NLG, HDG, IJC, BCM, CEO, AGG]
+  Securities:  [SSI, VCI, HCM, VND, VIX, BSI, SHS]
+  Consumer:    [VNM, MSN, MWG, SAB, PNJ, DBC, QNS, SBT, PAN, MCH]
+  Industrial:  [HPG, REE, GEX, HSG, NKG, CTD, VGC, VCG, HHV, VGT]
+  Energy:      [GAS, PLX, POW, BSR, OIL, PVS, PVD, PVT]
+  Technology:  [FPT, CMG, ELC, VTL]
+  Logistics:   [GMD, HAH, VSC, PVT, STG]
+  Agriculture: [VHC, ANV, HVN, IDI, MPC]
+  Mining:      [DGC, DHC, PHR, VCS, KSB]
 
 watchlist:
   vn30:
@@ -65,6 +68,103 @@ watchlist:
     - EIB
     - TCH
     - KDH
+  vn100:
+    - VCB
+    - BID
+    - CTG
+    - TCB
+    - VPB
+    - MBB
+    - ACB
+    - STB
+    - HDB
+    - SHB
+    - EIB
+    - LPB
+    - MSB
+    - OCB
+    - TPB
+    - VIB
+    - VHM
+    - VIC
+    - KDH
+    - TCH
+    - NVL
+    - PDR
+    - DXG
+    - NLG
+    - HDG
+    - BCM
+    - VNM
+    - MSN
+    - MWG
+    - SAB
+    - PNJ
+    - DBC
+    - QNS
+    - SBT
+    - FPT
+    - CMG
+    - HPG
+    - REE
+    - GEX
+    - HSG
+    - NKG
+    - VGC
+    - CTD
+    - GAS
+    - PLX
+    - POW
+    - BSR
+    - PVS
+    - SSI
+    - VCI
+    - HCM
+    - VND
+    - VIX
+    - GMD
+    - HAH
+    - VHC
+    - MPC
+    - DGC
+    - PHR
+    - VRE
+    - DCM
+    - DPM
+    - PAN
+    - AGG
+    - IJC
+  hnx30:
+    - PVS
+    - SHN
+    - TNG
+    - IVS
+    - BCC
+    - L14
+    - PLC
+    - PVI
+    - S99
+    - VC3
+    - VCS
+    - DNP
+    - CEO
+    - HUT
+    - SD9
+    - NRC
+    - PVL
+    - AMV
+    - APP
+    - BSC
+    - DST
+    - HBS
+    - IDC
+    - KLF
+    - NHC
+    - PPP
+    - SCI
+    - VGP
+    - VTC
+    - WCS
 
 thresholds:
   daily:
@@ -90,6 +190,39 @@ thresholds:
     min_eps_growth: 0.10
     min_dividend_yield: 0.02
     min_revenue_cagr: 0.08
+
+regime:
+  ma_short: 50
+  ma_long: 200
+  adx_trend_threshold: 25
+  bull_signal_boost: 0.15       # +15% to BUY conviction in BULL regime
+  bear_signal_penalty: 0.10     # -10% to BUY conviction in BEAR regime
+  sideways_haircut: 0.10        # -10% to all signals in SIDEWAYS
+
+foreign_flow:
+  enabled: true
+  lookback_days: 60
+  strong_buying_threshold: 100000    # net shares > this = strong foreign buying
+  cache_ttl: 3600
+
+earnings:
+  warn_days_ahead: 7            # flag tickers with events within N days
+  avoid_new_positions: true
+
+insider:
+  enabled: true
+  lookback_days: 90
+  cache_ttl: 21600              # 6 hours
+
+ml_signal:
+  enabled: true
+  min_samples: 20               # minimum closed signals before ML activates
+  confidence_blend: 0.50        # weight of ML probability vs raw confidence
+
+sector_rotation:
+  top_pct: 0.33                 # top third = rotate into
+  bottom_pct: 0.33              # bottom third = rotate out of
+  min_return_spread: 5.0        # minimum % spread between top/bottom for action
 
 data_cache_ttl:
   intraday: 300          # 5 min

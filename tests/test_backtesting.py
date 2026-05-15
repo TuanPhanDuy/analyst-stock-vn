@@ -4,7 +4,8 @@ import pandas as pd
 import pytest
 
 from src.backtesting.metrics import (
-    max_drawdown, profit_factor, sharpe_ratio, summary_report, win_rate
+    max_drawdown, profit_factor, sharpe_ratio, summary_report, win_rate,
+    apply_transaction_costs, ROUND_TRIP_COST_PCT,
 )
 from src.backtesting.runner import run_backtest
 
@@ -75,31 +76,50 @@ def _make_results(pnls: list, result: str = "HIT_TARGET") -> pd.DataFrame:
     ])
 
 
+def test_apply_transaction_costs():
+    # Round-trip cost should be buy_cost + sell_cost
+    # buy: 0.15% commission + 0.10% slippage = 0.25%
+    # sell: 0.15% commission + 0.10% tax + 0.10% slippage = 0.35%
+    net = apply_transaction_costs(10.0)
+    assert net == pytest.approx(10.0 - ROUND_TRIP_COST_PCT, abs=1e-6)
+    # A 0.5% gross gain should be negative after costs (~0.70% round trip)
+    assert apply_transaction_costs(0.5) < 0
+
+
 def test_win_rate_all_wins():
+    # Net P&L after costs: 5.0 - ~0.70 = 4.30 > 0 → still a win
     df = _make_results([5.0, 3.0, 2.0])
     assert win_rate(df) == 1.0
 
 
 def test_win_rate_all_losses():
+    # Already negative gross — even more negative after costs
     df = _make_results([-1.0, -2.0, -3.0])
     assert win_rate(df) == 0.0
 
 
 def test_win_rate_mixed():
+    # 5.0 and 3.0 are wins after costs; -2.0 and -1.0 are still losses
     df = _make_results([5.0, -2.0, 3.0, -1.0])
     assert win_rate(df) == pytest.approx(0.5)
 
 
 def test_profit_factor_all_wins():
+    # Net P&L positive for both — no losses → inf
     df = _make_results([5.0, 3.0])
     pf = profit_factor(df)
     assert pf == float("inf")
 
 
 def test_profit_factor_mixed():
+    # gross: 6.0 win, -2.0 loss
+    # net: (6.0 - 0.70) = 5.30, (-2.0 - 0.70) = -2.70
+    # pf = 5.30 / 2.70 ≈ 1.963
     df = _make_results([6.0, -2.0])
     pf = profit_factor(df)
-    assert pf == pytest.approx(3.0)
+    expected_win = 6.0 - ROUND_TRIP_COST_PCT
+    expected_loss = abs(-2.0 - ROUND_TRIP_COST_PCT)
+    assert pf == pytest.approx(expected_win / expected_loss, rel=1e-4)
 
 
 def test_sharpe_ratio_zero_volatility():

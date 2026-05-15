@@ -1,3 +1,4 @@
+# Core data
 vnstock>=0.3.0
 yfinance>=0.2.40
 pandas>=2.0.0
@@ -5,10 +6,25 @@ numpy>=1.24.0
 requests>=2.31.0
 pyyaml>=6.0
 python-dotenv>=1.0.0
+
+# Visualization & dashboard
+streamlit>=1.32.0
+plotly>=5.18.0
+
+# ML signal calibration
+scikit-learn>=1.4.0
+scipy>=1.11.0
+lightgbm>=4.0.0        # optional but recommended — faster than sklearn GBM
+
+# Reporting
+rich>=13.0.0
+tabulate>=0.9.0
+
+# Claude / Anthropic
+anthropic>=0.25.0
+
+# Dev & testing
 ruff>=0.4.0
 mypy>=1.8.0
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
-tabulate>=0.9.0
-rich>=13.0.0
-anthropic>=0.25.0
