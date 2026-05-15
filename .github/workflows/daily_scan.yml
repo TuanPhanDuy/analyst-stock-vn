@@ -2,7 +2,7 @@ name: Daily VN Stock Scan
 
 on:
   schedule:
-    - cron: '30 1 * * 1-5'  # 8:30 AM ICT (UTC+7) on weekdays
+    - cron: '0 22 * * 0-4'  # 5:00 AM ICT (UTC+7) Mon–Fri; fires at 22:00 UTC Sun–Thu to absorb GitHub's typical 2–3 h queue delay
   workflow_dispatch:          # allow manual trigger from GitHub UI
 
 jobs:
