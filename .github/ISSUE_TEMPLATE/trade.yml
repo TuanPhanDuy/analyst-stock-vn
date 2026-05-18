@@ -3,13 +3,12 @@ description: Log a buy or sell to your portfolio
 title: "trade"
 labels: ["trade"]
 body:
-  - type: dropdown
+  - type: input
     id: action
     attributes:
       label: Action
-      options:
-        - BUY
-        - SELL
+      description: "BUY or SELL"
+      placeholder: "BUY"
     validations:
       required: true
 
@@ -17,7 +16,8 @@ body:
     id: ticker
     attributes:
       label: Ticker
-      placeholder: HCM
+      description: "Stock code in uppercase — e.g. HCM, VCB, FPT"
+      placeholder: "HCM"
     validations:
       required: true
 
@@ -33,7 +33,7 @@ body:
     id: price
     attributes:
       label: Price
-      description: VCBS format — e.g. 26.5 for 26,500 VND
+      description: "VCBS format — e.g. 26.5 for 26,500 VND"
       placeholder: "26.5"
     validations:
       required: true
@@ -42,5 +42,5 @@ body:
     id: notes
     attributes:
       label: Notes
-      description: Optional — reason, broker order ID, etc.
-      placeholder: scanner signal, breakout, etc.
+      description: "Optional — reason, broker order ID, etc."
+      placeholder: "scanner signal, breakout, etc."

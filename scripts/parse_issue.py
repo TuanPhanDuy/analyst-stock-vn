@@ -33,6 +33,10 @@ def main() -> None:
         print(f"ERROR: missing required fields: {missing}", file=sys.stderr)
         sys.exit(1)
 
+    if action not in ("BUY", "SELL"):
+        print(f"ERROR: Action must be BUY or SELL, got {action!r}", file=sys.stderr)
+        sys.exit(1)
+
     with open(env_file, "a") as f:
         f.write(f"TRADE_ACTION={action}\n")
         f.write(f"TRADE_TICKER={ticker}\n")
