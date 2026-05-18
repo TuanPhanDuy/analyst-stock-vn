@@ -5,31 +5,41 @@ on:
     branches: [main]
     paths:
       - 'docs/**'
+      - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
-
-permissions:
-  pages: write
-  id-token: write
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Inject GitHub dispatch token
+      - name: Inject token into HTML
         run: |
-          sed -i "s|__GH_DISPATCH_TOKEN__|${{ secrets.GH_DISPATCH_TOKEN }}|g" docs/index.html
+          sed "s|__GH_DISPATCH_TOKEN__|${{ secrets.GH_DISPATCH_TOKEN }}|g" \
+            docs/index.html > /tmp/index.html
 
-      - uses: actions/configure-pages@v5
+      - name: Verify token was injected
+        run: |
+          if grep -q '__GH_DISPATCH_TOKEN__' /tmp/index.html; then
+            echo "ERROR: GH_DISPATCH_TOKEN secret is empty or not set."
+            echo "Go to repo Settings → Secrets and variables → Actions → New secret"
+            echo "Name: GH_DISPATCH_TOKEN  Value: your ghp_... token"
+            exit 1
+          fi
+          echo "Token injection OK"
 
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs/
-
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Push to gh-pages branch
+        run: |
+          git config user.name "VN Trading Desk"
+          git config user.email "actions@github.com"
+          git fetch origin gh-pages 2>/dev/null || true
+          git checkout --orphan gh-pages-tmp
+          git rm -rf . --quiet
+          cp /tmp/index.html index.html
+          git add index.html
+          git commit -m "Deploy trade web app $(date -u '+%Y-%m-%d %H:%M')"
+          git push origin HEAD:gh-pages --force
