@@ -44,6 +44,15 @@
       "stop_loss": 25700,
       "target": 28400,
       "notes": "Bought 2026-05-18 via iPhone"
+    },
+    {
+      "ticker": "HCM",
+      "buy_date": "2026-05-18",
+      "buy_price": 26500,
+      "qty": 100,
+      "stop_loss": 25700,
+      "target": 28400,
+      "notes": "I just test"
     }
   ]
 }
