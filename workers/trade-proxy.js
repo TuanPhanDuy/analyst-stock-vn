@@ -53,6 +53,7 @@ export default {
       }
     );
 
-    return new Response(null, { status: res.status, headers: CORS });
+    const text = await res.text();
+    return new Response(text || null, { status: res.status, headers: CORS });
   },
 };
