@@ -128,7 +128,8 @@
         document.getElementById('price').value  = '';
         document.getElementById('notes').value  = '';
       } else {
-        showErr(`Error ${res.status} — check your worker logs.`);
+        const msg = await res.text().catch(() => '');
+        showErr(`Error ${res.status}: ${msg || 'no details'}`);
       }
     } catch (e) {
       showErr(`Network error: ${e.message}`);
