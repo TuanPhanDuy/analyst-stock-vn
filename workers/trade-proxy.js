@@ -1,14 +1,6 @@
 /**
  * Cloudflare Worker — VN Trade Proxy
- *
- * Receives a trade dispatch request from the web form and forwards it to
- * GitHub Actions using the GH_TOKEN secret stored in CF Worker environment.
- * The browser never sees the token.
- *
- * Deploy:
- *   1. cloudflare.com → Workers & Pages → Create Worker → paste this file → Deploy
- *   2. Worker Settings → Variables and Secrets → Add secret: GH_TOKEN = ghp_...
- *   3. Copy your worker URL and update WORKER_URL in docs/index.html
+ * Forwards workflow_dispatch to GitHub using GH_DISPATCH_TOKEN secret.
  */
 
 const REPO     = 'TuanPhanDuy/analyst-stock-vn';
@@ -22,9 +14,22 @@ export default {
       return new Response(null, {
         headers: {
           ...CORS,
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
           'Access-Control-Allow-Headers': 'Content-Type',
         },
+      });
+    }
+
+    // GET /debug — verify token is configured without exposing it
+    if (request.method === 'GET') {
+      const token = env.GH_DISPATCH_TOKEN || '';
+      return new Response(JSON.stringify({
+        token_set:    token.length > 0,
+        token_length: token.length,
+        token_prefix: token.slice(0, 4),   // shows "ghp_" or "gith" — safe to expose
+        token_valid_format: token.startsWith('ghp_') || token.startsWith('github_pat_'),
+      }), {
+        headers: { ...CORS, 'Content-Type': 'application/json' },
       });
     }
 
@@ -39,12 +44,19 @@ export default {
       return new Response('Invalid JSON', { status: 400, headers: CORS });
     }
 
+    const token = env.GH_DISPATCH_TOKEN || '';
+    if (!token) {
+      return new Response(JSON.stringify({ error: 'GH_DISPATCH_TOKEN secret not set in worker' }), {
+        status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
+      });
+    }
+
     const res = await fetch(
       `https://api.github.com/repos/${REPO}/actions/workflows/${WORKFLOW}/dispatches`,
       {
         method:  'POST',
         headers: {
-          'Authorization': `Bearer ${env.GH_DISPATCH_TOKEN}`,
+          'Authorization': `Bearer ${token}`,
           'Accept':        'application/vnd.github.v3+json',
           'Content-Type':  'application/json',
           'User-Agent':    'vn-trade-proxy',
@@ -54,6 +66,9 @@ export default {
     );
 
     const text = await res.text();
-    return new Response(text || null, { status: res.status, headers: CORS });
+    return new Response(text || null, {
+      status:  res.status,
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+    });
   },
 };
