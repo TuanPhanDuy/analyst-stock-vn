@@ -17,29 +17,32 @@
       padding: env(safe-area-inset-top, 20px) 16px 40px;
     }
 
-    h1 {
-      font-size: 34px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       margin: 16px 0 24px;
-      color: #000;
+    }
+    h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.5px; color: #000; }
+
+    /* ── Token setup screen ── */
+    #setupScreen { display: none; }
+    #setupScreen.visible { display: block; }
+    .setup-title { font-size: 22px; font-weight: 700; margin-bottom: 8px; color: #000; }
+    .setup-hint  { font-size: 14px; color: #8e8e93; margin-bottom: 20px; line-height: 1.5; }
+
+    /* ── Settings icon ── */
+    #settingsBtn {
+      background: none; border: none; cursor: pointer;
+      font-size: 22px; padding: 4px;
+      -webkit-tap-highlight-color: transparent;
     }
 
     /* ── BUY / SELL toggle ── */
-    .action-row {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
+    .action-row { display: flex; gap: 10px; margin-bottom: 20px; }
     .action-btn {
-      flex: 1;
-      padding: 18px 0;
-      border: none;
-      border-radius: 14px;
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      cursor: pointer;
+      flex: 1; padding: 18px 0; border: none; border-radius: 14px;
+      font-size: 20px; font-weight: 700; letter-spacing: 0.5px; cursor: pointer;
       transition: transform 0.1s, opacity 0.15s;
       -webkit-tap-highlight-color: transparent;
     }
@@ -48,150 +51,143 @@
     .action-btn.dim  { opacity: 0.28; transform: scale(0.97); }
 
     /* ── Input card ── */
-    .card {
-      background: #fff;
-      border-radius: 12px;
-      overflow: hidden;
-      margin-bottom: 20px;
-    }
-    .row {
-      display: flex;
-      align-items: center;
-      padding: 14px 16px;
-      border-bottom: 0.5px solid #c6c6c8;
-    }
+    .card { background: #fff; border-radius: 12px; overflow: hidden; margin-bottom: 20px; }
+    .row  { display: flex; align-items: center; padding: 14px 16px; border-bottom: 0.5px solid #c6c6c8; }
     .row:last-child { border-bottom: none; }
-    .row label {
-      font-size: 17px;
-      color: #000;
-      flex: 0 0 110px;
-    }
+    .row label { font-size: 17px; color: #000; flex: 0 0 110px; }
     .row input {
-      flex: 1;
-      font-size: 17px;
-      border: none;
-      outline: none;
-      text-align: right;
-      color: #3a3a3c;
-      background: transparent;
-      font-family: inherit;
-      min-width: 0;
+      flex: 1; font-size: 17px; border: none; outline: none;
+      text-align: right; color: #3a3a3c; background: transparent;
+      font-family: inherit; min-width: 0;
     }
     .row input::placeholder { color: #c7c7cc; }
 
-    /* ── Submit ── */
-    #submitBtn {
-      width: 100%;
-      padding: 18px;
-      background: #007aff;
-      color: #fff;
-      border: none;
-      border-radius: 14px;
-      font-size: 18px;
-      font-weight: 600;
-      cursor: pointer;
+    /* ── Buttons ── */
+    .btn {
+      width: 100%; padding: 18px; border: none; border-radius: 14px;
+      font-size: 18px; font-weight: 600; cursor: pointer;
       -webkit-tap-highlight-color: transparent;
     }
-    #submitBtn:disabled { background: #aeaeb2; cursor: default; }
+    .btn-blue  { background: #007aff; color: #fff; }
+    .btn-green { background: #34c759; color: #fff; }
+    .btn:disabled { background: #aeaeb2; cursor: default; }
 
     /* ── Status banner ── */
-    .banner {
-      display: none;
-      margin-top: 16px;
-      padding: 14px 16px;
-      border-radius: 12px;
-      font-size: 15px;
-      line-height: 1.4;
-    }
+    .banner { display: none; margin-top: 16px; padding: 14px 16px; border-radius: 12px; font-size: 15px; line-height: 1.4; }
     .banner.ok  { background: #d4edda; color: #155724; display: block; }
     .banner.err { background: #fde8e8; color: #9b1c1c; display: block; }
-
-    /* ── Token section ── */
-    .section-label {
-      font-size: 13px;
-      font-weight: 500;
-      color: #6d6d72;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-      margin: 0 4px 8px;
-    }
-    .hint {
-      font-size: 12px;
-      color: #8e8e93;
-      margin: 8px 4px 20px;
-      line-height: 1.5;
-    }
   </style>
 </head>
 <body>
 
-<h1>📈 Trade Log</h1>
-
-<!-- Token -->
-<div class="section-label">GitHub Token</div>
-<div class="card">
-  <div class="row">
-    <label>Token</label>
-    <input id="ghToken" type="password" placeholder="ghp_xxxxxxxxxxxx"
-           autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+<!-- ── Setup screen (first launch only) ── -->
+<div id="setupScreen">
+  <p class="setup-title">One-time setup</p>
+  <p class="setup-hint">
+    Create a GitHub token with <strong>workflow</strong> scope at:<br>
+    GitHub → Settings → Developer settings → Personal access tokens
+  </p>
+  <div class="card">
+    <div class="row">
+      <label>Token</label>
+      <input id="setupToken" type="password" placeholder="ghp_xxxxxxxxxxxx"
+             autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+    </div>
   </div>
-</div>
-<p class="hint">Saved on this device only. Needs <strong>workflow</strong> scope.</p>
-
-<!-- Action -->
-<div class="action-row">
-  <button class="action-btn buy"      id="btnBuy"  onclick="setAction('BUY')">BUY</button>
-  <button class="action-btn sell dim" id="btnSell" onclick="setAction('SELL')">SELL</button>
-</div>
-
-<!-- Fields -->
-<div class="card">
-  <div class="row">
-    <label>Ticker</label>
-    <input id="ticker" type="text" placeholder="HCM"
-           autocorrect="off" autocomplete="off" spellcheck="false"
-           autocapitalize="characters"
-           oninput="this.value=this.value.toUpperCase()">
-  </div>
-  <div class="row">
-    <label>Quantity</label>
-    <input id="qty" type="number" placeholder="100"
-           inputmode="numeric" pattern="[0-9]*" min="1">
-  </div>
-  <div class="row">
-    <label>Price (VCBS)</label>
-    <input id="price" type="number" placeholder="26.5"
-           inputmode="decimal" step="0.1" min="0.1">
-  </div>
-  <div class="row">
-    <label>Notes</label>
-    <input id="notes" type="text" placeholder="optional" autocorrect="off">
-  </div>
+  <button class="btn btn-green" onclick="saveToken()">Save &amp; Continue</button>
+  <div class="banner" id="setupBanner"></div>
 </div>
 
-<button id="submitBtn" onclick="submitTrade()">Submit Trade</button>
+<!-- ── Main trade form ── -->
+<div id="mainScreen" style="display:none">
 
-<div class="banner" id="banner"></div>
+  <div class="header">
+    <h1>📈 Trade Log</h1>
+    <button id="settingsBtn" onclick="showSetup()" title="Change token">⚙️</button>
+  </div>
+
+  <div class="action-row">
+    <button class="action-btn buy"      id="btnBuy"  onclick="setAction('BUY')">BUY</button>
+    <button class="action-btn sell dim" id="btnSell" onclick="setAction('SELL')">SELL</button>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <label>Ticker</label>
+      <input id="ticker" type="text" placeholder="HCM"
+             autocorrect="off" autocomplete="off" spellcheck="false"
+             autocapitalize="characters"
+             oninput="this.value=this.value.toUpperCase()">
+    </div>
+    <div class="row">
+      <label>Quantity</label>
+      <input id="qty" type="number" placeholder="100" inputmode="numeric" pattern="[0-9]*" min="1">
+    </div>
+    <div class="row">
+      <label>Price (VCBS)</label>
+      <input id="price" type="number" placeholder="26.5" inputmode="decimal" step="0.1" min="0.1">
+    </div>
+    <div class="row">
+      <label>Notes</label>
+      <input id="notes" type="text" placeholder="optional" autocorrect="off">
+    </div>
+  </div>
+
+  <button class="btn btn-blue" id="submitBtn" onclick="submitTrade()">Submit Trade</button>
+  <div class="banner" id="banner"></div>
+
+</div>
 
 <script>
   const REPO     = 'TuanPhanDuy/analyst-stock-vn';
   const WORKFLOW = 'record_trade.yml';
+  const TOKEN_KEY = 'vn_gh_token';
 
   let action = 'BUY';
 
+  // ── Boot: show setup or main screen ──────────────────────────────────────
   window.addEventListener('load', () => {
-    const t = localStorage.getItem('vn_gh_token');
-    if (t) document.getElementById('ghToken').value = t;
+    if (localStorage.getItem(TOKEN_KEY)) {
+      show('mainScreen');
+    } else {
+      show('setupScreen');
+    }
   });
 
+  function show(id) {
+    document.getElementById('setupScreen').style.display = 'none';
+    document.getElementById('mainScreen') .style.display = 'none';
+    document.getElementById(id).style.display = 'block';
+  }
+
+  // ── Token setup ───────────────────────────────────────────────────────────
+  function saveToken() {
+    const t = document.getElementById('setupToken').value.trim();
+    const b = document.getElementById('setupBanner');
+    if (!t.startsWith('ghp_') && !t.startsWith('github_pat_')) {
+      b.className = 'banner err';
+      b.textContent = '❌ Paste a valid GitHub token (starts with ghp_ or github_pat_)';
+      return;
+    }
+    localStorage.setItem(TOKEN_KEY, t);
+    show('mainScreen');
+  }
+
+  function showSetup() {
+    document.getElementById('setupToken').value = localStorage.getItem(TOKEN_KEY) || '';
+    show('setupScreen');
+  }
+
+  // ── BUY / SELL toggle ─────────────────────────────────────────────────────
   function setAction(a) {
     action = a;
     document.getElementById('btnBuy') .classList.toggle('dim', a !== 'BUY');
     document.getElementById('btnSell').classList.toggle('dim', a !== 'SELL');
   }
 
+  // ── Submit trade ──────────────────────────────────────────────────────────
   async function submitTrade() {
-    const token  = document.getElementById('ghToken').value.trim();
+    const token  = localStorage.getItem(TOKEN_KEY) || '';
     const ticker = document.getElementById('ticker').value.trim().toUpperCase();
     const qty    = document.getElementById('qty').value.trim();
     const price  = document.getElementById('price').value.trim();
@@ -201,12 +197,10 @@
 
     banner.className = 'banner';
 
-    if (!token)                return showErr('Enter your GitHub token.');
     if (!ticker)               return showErr('Ticker is required.');
     if (!qty    || +qty   <= 0) return showErr('Quantity must be greater than 0.');
     if (!price  || +price <= 0) return showErr('Price must be greater than 0.');
 
-    localStorage.setItem('vn_gh_token', token);
     btn.disabled    = true;
     btn.textContent = 'Submitting…';
 
@@ -236,7 +230,11 @@
         document.getElementById('notes').value  = '';
       } else {
         const body = await res.json().catch(() => ({}));
-        showErr(`GitHub ${res.status}: ${body.message || 'unknown error'}`);
+        if (res.status === 401) {
+          showErr('Token invalid or expired — tap ⚙️ to update it.');
+        } else {
+          showErr(`GitHub ${res.status}: ${body.message || 'unknown error'}`);
+        }
       }
     } catch (e) {
       showErr(`Network error: ${e.message}`);
