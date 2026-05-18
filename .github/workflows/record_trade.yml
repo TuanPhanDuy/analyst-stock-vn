@@ -1,0 +1,74 @@
+name: Record Trade
+
+on:
+  workflow_dispatch:
+    inputs:
+      ticker:
+        description: 'Stock ticker (e.g. HCM, VCB, FPT)'
+        required: true
+        type: string
+      action:
+        description: 'Trade action'
+        required: true
+        type: choice
+        options:
+          - BUY
+          - SELL
+      qty:
+        description: 'Number of shares'
+        required: true
+        type: string
+      price:
+        description: 'Price per share in VND (e.g. 26500)'
+        required: true
+        type: string
+      stop_loss:
+        description: 'Stop loss price in VND (0 = auto -3%)'
+        required: false
+        default: '0'
+        type: string
+      target:
+        description: 'Target price in VND (0 = auto +7%)'
+        required: false
+        default: '0'
+        type: string
+      notes:
+        description: 'Notes (optional)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Record trade in portfolio
+        run: python scripts/record_trade.py
+        env:
+          TRADE_TICKER: ${{ inputs.ticker }}
+          TRADE_ACTION: ${{ inputs.action }}
+          TRADE_QTY: ${{ inputs.qty }}
+          TRADE_PRICE: ${{ inputs.price }}
+          TRADE_STOP_LOSS: ${{ inputs.stop_loss }}
+          TRADE_TARGET: ${{ inputs.target }}
+          TRADE_NOTES: ${{ inputs.notes }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+
+      - name: Commit updated portfolio
+        run: |
+          git config user.name "VN Trading Desk"
+          git config user.email "actions@github.com"
+          git add data/portfolio.json
+          git diff --cached --quiet || git commit -m "${{ inputs.action }} ${{ inputs.qty }} ${{ inputs.ticker }} @ ${{ inputs.price }} VND — $(date -u '+%Y-%m-%d')"
+          git push
