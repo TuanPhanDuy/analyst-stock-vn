@@ -44,7 +44,7 @@ export default {
       {
         method:  'POST',
         headers: {
-          'Authorization': `Bearer ${env.GH_TOKEN}`,
+          'Authorization': `Bearer ${env.GH_DISPATCH_TOKEN}`,
           'Accept':        'application/vnd.github.v3+json',
           'Content-Type':  'application/json',
           'User-Agent':    'vn-trade-proxy',
