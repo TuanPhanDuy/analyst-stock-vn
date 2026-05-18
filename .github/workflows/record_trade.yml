@@ -19,18 +19,8 @@ on:
         required: true
         type: string
       price:
-        description: 'Price per share in VND (e.g. 26500)'
+        description: 'Price per share — VCBS format (e.g. 26.5 for 26,500 VND)'
         required: true
-        type: string
-      stop_loss:
-        description: 'Stop loss price in VND (0 = auto -3%)'
-        required: false
-        default: '0'
-        type: string
-      target:
-        description: 'Target price in VND (0 = auto +7%)'
-        required: false
-        default: '0'
         type: string
       notes:
         description: 'Notes (optional)'
@@ -50,6 +40,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
       - name: Record trade in portfolio
         run: python scripts/record_trade.py
@@ -58,8 +52,6 @@ jobs:
           TRADE_ACTION: ${{ inputs.action }}
           TRADE_QTY: ${{ inputs.qty }}
           TRADE_PRICE: ${{ inputs.price }}
-          TRADE_STOP_LOSS: ${{ inputs.stop_loss }}
-          TRADE_TARGET: ${{ inputs.target }}
           TRADE_NOTES: ${{ inputs.notes }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
@@ -70,5 +62,5 @@ jobs:
           git config user.name "VN Trading Desk"
           git config user.email "actions@github.com"
           git add data/portfolio.json
-          git diff --cached --quiet || git commit -m "${{ inputs.action }} ${{ inputs.qty }} ${{ inputs.ticker }} @ ${{ inputs.price }} VND — $(date -u '+%Y-%m-%d')"
+          git diff --cached --quiet || git commit -m "${{ inputs.action }} ${{ inputs.qty }} ${{ inputs.ticker }} @ ${{ inputs.price }} — $(date -u '+%Y-%m-%d')"
           git push
