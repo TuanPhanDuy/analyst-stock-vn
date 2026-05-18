@@ -9,26 +9,18 @@
   <title>Trade Log</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
       background: #f2f2f7;
       min-height: 100vh;
       padding: env(safe-area-inset-top, 20px) 16px 40px;
     }
-
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin: 16px 0 24px;
-    }
-    h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.5px; color: #000; }
+    h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.5px; color: #000; margin: 16px 0 24px; }
 
     .action-row { display: flex; gap: 10px; margin-bottom: 20px; }
     .action-btn {
       flex: 1; padding: 18px 0; border: none; border-radius: 14px;
-      font-size: 20px; font-weight: 700; letter-spacing: 0.5px; cursor: pointer;
+      font-size: 20px; font-weight: 700; cursor: pointer;
       transition: transform 0.1s, opacity 0.15s;
       -webkit-tap-highlight-color: transparent;
     }
@@ -61,9 +53,7 @@
 </head>
 <body>
 
-<div class="header">
-  <h1>📈 Trade Log</h1>
-</div>
+<h1>📈 Trade Log</h1>
 
 <div class="action-row">
   <button class="action-btn buy"      id="btnBuy"  onclick="setAction('BUY')">BUY</button>
@@ -96,10 +86,8 @@
 <div class="banner" id="banner"></div>
 
 <script>
-  // Injected at deploy time by deploy-pages.yml — never committed to source
-  const GH_TOKEN = '__GH_DISPATCH_TOKEN__';
-  const REPO     = 'TuanPhanDuy/analyst-stock-vn';
-  const WORKFLOW = 'record_trade.yml';
+  // Cloudflare Worker URL — update this after deploying workers/trade-proxy.js
+  const PROXY = 'https://YOUR_WORKER.YOUR_SUBDOMAIN.workers.dev';
 
   let action = 'BUY';
 
@@ -118,7 +106,6 @@
     const banner = document.getElementById('banner');
 
     banner.className = 'banner';
-
     if (!ticker)                return showErr('Ticker is required.');
     if (!qty    || +qty   <= 0) return showErr('Quantity must be greater than 0.');
     if (!price  || +price <= 0) return showErr('Price must be greater than 0.');
@@ -127,21 +114,11 @@
     btn.textContent = 'Submitting…';
 
     try {
-      const res = await fetch(
-        `https://api.github.com/repos/${REPO}/actions/workflows/${WORKFLOW}/dispatches`,
-        {
-          method:  'POST',
-          headers: {
-            'Authorization': `Bearer ${GH_TOKEN}`,
-            'Accept':        'application/vnd.github.v3+json',
-            'Content-Type':  'application/json',
-          },
-          body: JSON.stringify({
-            ref: 'main',
-            inputs: { action, ticker, qty, price, notes },
-          }),
-        }
-      );
+      const res = await fetch(PROXY, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ ref: 'main', inputs: { action, ticker, qty, price, notes } }),
+      });
 
       if (res.status === 204) {
         banner.className = 'banner ok';
@@ -151,8 +128,7 @@
         document.getElementById('price').value  = '';
         document.getElementById('notes').value  = '';
       } else {
-        const body = await res.json().catch(() => ({}));
-        showErr(`GitHub ${res.status}: ${body.message || 'unknown error'}`);
+        showErr(`Error ${res.status} — check your worker logs.`);
       }
     } catch (e) {
       showErr(`Network error: ${e.message}`);
