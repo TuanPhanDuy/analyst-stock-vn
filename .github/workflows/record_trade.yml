@@ -1,25 +1,26 @@
 name: Record Trade
 
 on:
+  issues:
+    types: [opened]
+  # Keep workflow_dispatch as a Mac fallback
   workflow_dispatch:
     inputs:
-      ticker:
-        description: 'Stock ticker (e.g. HCM, VCB, FPT)'
-        required: true
-        type: string
       action:
         description: 'Trade action'
         required: true
         type: choice
-        options:
-          - BUY
-          - SELL
+        options: [BUY, SELL]
+      ticker:
+        description: 'Ticker (e.g. HCM)'
+        required: true
+        type: string
       qty:
-        description: 'Number of shares'
+        description: 'Shares'
         required: true
         type: string
       price:
-        description: 'Price per share — VCBS format (e.g. 26.5 for 26,500 VND)'
+        description: 'Price — VCBS format (26.5 = 26,500 VND)'
         required: true
         type: string
       notes:
@@ -30,9 +31,15 @@ on:
 
 jobs:
   record:
+    # Issues path: only fire for issues labelled "trade"
+    # workflow_dispatch path: always fire
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.issue.labels.*.name, 'trade')
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
 
     steps:
       - uses: actions/checkout@v4
@@ -45,14 +52,27 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      # ── iPhone path: parse structured issue form body ──────────────────
+      - name: Parse issue body
+        if: github.event_name == 'issues'
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: python scripts/parse_issue.py
+
+      # ── Mac path: set env from workflow_dispatch inputs ─────────────────
+      - name: Set env from workflow_dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "TRADE_ACTION=${{ inputs.action }}"  >> $GITHUB_ENV
+          echo "TRADE_TICKER=${{ inputs.ticker }}"  >> $GITHUB_ENV
+          echo "TRADE_QTY=${{ inputs.qty }}"        >> $GITHUB_ENV
+          echo "TRADE_PRICE=${{ inputs.price }}"    >> $GITHUB_ENV
+          echo "TRADE_NOTES=${{ inputs.notes }}"    >> $GITHUB_ENV
+
+      # ── Record trade, compute ATR levels, send email ────────────────────
       - name: Record trade in portfolio
         run: python scripts/record_trade.py
         env:
-          TRADE_TICKER: ${{ inputs.ticker }}
-          TRADE_ACTION: ${{ inputs.action }}
-          TRADE_QTY: ${{ inputs.qty }}
-          TRADE_PRICE: ${{ inputs.price }}
-          TRADE_NOTES: ${{ inputs.notes }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
@@ -62,5 +82,18 @@ jobs:
           git config user.name "VN Trading Desk"
           git config user.email "actions@github.com"
           git add data/portfolio.json
-          git diff --cached --quiet || git commit -m "${{ inputs.action }} ${{ inputs.qty }} ${{ inputs.ticker }} @ ${{ inputs.price }} — $(date -u '+%Y-%m-%d')"
+          git diff --cached --quiet || git commit -m \
+            "${TRADE_ACTION} ${TRADE_QTY} ${TRADE_TICKER} @ ${TRADE_PRICE} — $(date -u '+%Y-%m-%d')"
           git push
+
+      # ── Comment result and close issue (iPhone path only) ───────────────
+      - name: Close trade issue
+        if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} --body \
+            "✅ **Recorded:** ${TRADE_ACTION} ${TRADE_QTY} **${TRADE_TICKER}** @ ${TRADE_PRICE}
+
+          Stop loss and target auto-calculated from 14-day ATR. Check your email for the full breakdown."
+          gh issue close ${{ github.event.issue.number }} --reason completed

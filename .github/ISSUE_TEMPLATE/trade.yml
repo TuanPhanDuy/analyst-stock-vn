@@ -1,0 +1,46 @@
+name: Record Trade
+description: Log a buy or sell to your portfolio
+title: "trade"
+labels: ["trade"]
+body:
+  - type: dropdown
+    id: action
+    attributes:
+      label: Action
+      options:
+        - BUY
+        - SELL
+    validations:
+      required: true
+
+  - type: input
+    id: ticker
+    attributes:
+      label: Ticker
+      placeholder: HCM
+    validations:
+      required: true
+
+  - type: input
+    id: qty
+    attributes:
+      label: Quantity (shares)
+      placeholder: "100"
+    validations:
+      required: true
+
+  - type: input
+    id: price
+    attributes:
+      label: Price
+      description: VCBS format — e.g. 26.5 for 26,500 VND
+      placeholder: "26.5"
+    validations:
+      required: true
+
+  - type: input
+    id: notes
+    attributes:
+      label: Notes
+      description: Optional — reason, broker order ID, etc.
+      placeholder: scanner signal, breakout, etc.
