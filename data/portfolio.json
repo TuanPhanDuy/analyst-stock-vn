@@ -71,6 +71,15 @@
       "stop_loss": 25700,
       "target": 28400,
       "notes": "Testing"
+    },
+    {
+      "ticker": "HPG",
+      "buy_date": "2026-05-19",
+      "buy_price": 26200,
+      "qty": 100,
+      "stop_loss": 26200,
+      "target": 26200,
+      "notes": "Bought 2026-05-19 via iPhone"
     }
   ]
 }
