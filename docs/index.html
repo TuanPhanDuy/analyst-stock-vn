@@ -110,14 +110,23 @@
     if (!qty    || +qty   <= 0) return showErr('Quantity must be greater than 0.');
     if (!price  || +price <= 0) return showErr('Price must be greater than 0.');
 
+    // Dry-run mode: note "testing" means verify UI only, don't submit
+    if (notes.toLowerCase() === 'testing') {
+      banner.className = 'banner ok';
+      banner.textContent = `🧪 DRY RUN — ${action} ${qty} ${ticker} @ ${price} looks valid. No data was saved.`;
+      return;
+    }
+
     btn.disabled    = true;
     btn.textContent = 'Submitting…';
 
     try {
+      const inputs = { action, ticker, qty, price };
+      if (notes) inputs.notes = notes;   // omit when empty — GitHub rejects empty optional inputs
       const res = await fetch(PROXY, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ ref: 'main', inputs: { action, ticker, qty, price, notes } }),
+        body:    JSON.stringify({ ref: 'main', inputs }),
       });
 
       if (res.status === 204) {

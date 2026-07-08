@@ -223,13 +223,23 @@ def main() -> None:
               f"(stop={vnd_to_vcbs(stop)}, target={vnd_to_vcbs(target)})")
 
     else:  # SELL
+        from src.realized_pnl import record_sale
         remaining = qty
         new_positions = []
+        realized_total = 0
         for pos in portfolio["positions"]:
             if pos["ticker"] == ticker and remaining > 0:
                 held = pos.get("qty", 0)
+                take = min(held, remaining)   # shares sold from this lot
+                buy_price = pos.get("buy_price", 0)
+                if take > 0 and buy_price:
+                    rec = record_sale(
+                        ticker, entry, take, buy_price,
+                        buy_date=pos.get("buy_date", ""), sell_date=today, notes=notes,
+                    )
+                    realized_total += rec["realized_pnl_vnd"]
                 if held <= remaining:
-                    remaining -= held
+                    remaining -= held      # lot fully sold → not carried forward
                 else:
                     pos["qty"] = held - remaining
                     remaining = 0
@@ -239,7 +249,8 @@ def main() -> None:
 
         sold = qty - remaining
         portfolio["positions"] = new_positions
-        print(f"SELL recorded: {sold} {ticker} @ {vnd_to_vcbs(entry)}")
+        print(f"SELL recorded: {sold} {ticker} @ {vnd_to_vcbs(entry)}  "
+              f"realized P&L = {realized_total:+,} VND")
         if remaining > 0:
             print(f"WARNING: {remaining} shares not found in portfolio")
         stop = target = 0

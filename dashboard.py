@@ -89,6 +89,19 @@ def get_accuracy() -> dict:
     return accuracy_report()
 
 
+@st.cache_data(ttl=1800, show_spinner="Loading NAV history...")
+def get_nav() -> tuple:
+    from src.portfolio_tracker import equity_curve, summary
+    # benchmark=False avoids a network call inside the cached dashboard load.
+    return summary(benchmark=False), equity_curve()
+
+
+@st.cache_data(ttl=1800, show_spinner="Loading realized P&L...")
+def get_realized() -> tuple:
+    from src.realized_pnl import load_history, summary
+    return summary(), load_history()
+
+
 def load_portfolio() -> list:
     from src.portfolio_monitor import load_portfolio as _lp
     return _lp()
@@ -269,8 +282,10 @@ def show_portfolio(ohlcv_map: dict, entry_levels: dict) -> None:
             "P&L %": s.pnl_pct,
             "P&L ₫": f"{s.pnl_vnd:,.0f}" if p.qty else "—",
             "Status": f"{status_icon} {s.status}",
-            "Stop ₫": f"{p.stop_loss:,.0f}",
-            "Target ₫": f"{p.target:,.0f}",
+            # Show the levels actually used for the decision. If the stored
+            # stop/target were 0, these are ATR-based fallbacks — flagged with *.
+            "Stop ₫": f"{s.effective_stop:,.0f}" + ("*" if s.levels_are_fallback else ""),
+            "Target ₫": f"{s.effective_target:,.0f}" + ("*" if s.levels_are_fallback else ""),
             "From Stop": f"{s.pct_from_stop:+.1f}%",
             "From Target": f"{s.pct_from_target:+.1f}%",
         })
@@ -300,6 +315,8 @@ def show_portfolio(ohlcv_map: dict, entry_levels: dict) -> None:
         .format({"P&L %": "{:+.2f}%"})
     )
     st.dataframe(styled, use_container_width=True, hide_index=True)
+    if any(s.levels_are_fallback for s in statuses):
+        st.caption("\\* Stop/Target recomputed from ATR (no level set in portfolio.json).")
 
     # Portfolio summary metrics
     pnl_values = [s.pnl_pct for s in statuses]
@@ -344,6 +361,68 @@ def show_accuracy(acc: dict) -> None:
 
     ml_status = acc.get("ml_calibrator", "unknown")
     st.caption(f"ML calibrator: {ml_status}")
+
+
+# ── NAV / equity-curve panel ───────────────────────────────────────────────────
+
+def show_nav(summary: dict, curve: pd.DataFrame) -> None:
+    if summary.get("error") or curve is None or curve.empty:
+        st.info("No NAV history recorded yet. The daily scan records a snapshot each run.")
+        return
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("NAV", f"{summary.get('nav_current', 0):,.0f} ₫")
+    c2.metric("Total Return", f"{summary.get('total_return_pct', 0):+.2f}%")
+    c3.metric("Max Drawdown", f"{summary.get('max_drawdown_pct', 0):.2f}%")
+    c4.metric("Sharpe", f"{summary.get('sharpe', 0):.2f}")
+
+    st.markdown("**Equity curve**")
+    st.line_chart(curve["nav"], height=220)
+    st.markdown("**Drawdown**")
+    st.area_chart(curve["drawdown"] * 100, height=140)
+    st.caption(
+        f"{summary.get('trading_days', 0)} snapshots · CAGR "
+        f"{summary.get('cagr_pct', 0):+.2f}%"
+        + (f" · alpha vs VN-Index {summary['alpha_pct']:+.2f}%"
+           if summary.get("alpha_pct") is not None else "")
+    )
+
+
+# ── Realized-P&L panel ─────────────────────────────────────────────────────────
+
+def show_realized(summary: dict, history: list) -> None:
+    if summary.get("message"):
+        st.info(summary["message"])
+        return
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Realized P&L", f"{summary.get('total_realized_vnd', 0):+,.0f} ₫")
+    c2.metric("Closed Lots", summary.get("closed_lots", 0))
+    c3.metric("Win Rate", f"{summary.get('win_rate_pct', 0):.1f}%")
+    c4.metric("Avg P&L", f"{summary.get('avg_pnl_pct', 0):+.2f}%")
+
+    if history:
+        rows = [
+            {
+                "Sell Date": r["sell_date"],
+                "Ticker": r["ticker"],
+                "Qty": r["qty"],
+                "Buy ₫": f"{r['buy_price']:,.0f}",
+                "Sell ₫": f"{r['sell_price']:,.0f}",
+                "P&L ₫": f"{r['realized_pnl_vnd']:+,.0f}",
+                "P&L %": r["pnl_pct"],
+            }
+            for r in sorted(history, key=lambda x: x["sell_date"], reverse=True)
+        ]
+        styled = (
+            pd.DataFrame(rows).style
+            .applymap(
+                lambda v: "color:#28a745;font-weight:bold" if v > 0 else "color:#dc3545;font-weight:bold",
+                subset=["P&L %"],
+            )
+            .format({"P&L %": "{:+.2f}%"})
+        )
+        st.dataframe(styled, use_container_width=True, hide_index=True)
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -416,6 +495,26 @@ def main():
     # ── Portfolio ─────────────────────────────────────────────────────────────
     st.subheader("My Portfolio")
     show_portfolio(ohlcv_map, entry_levels)
+
+    st.divider()
+
+    # ── Portfolio Performance (NAV) ───────────────────────────────────────────
+    st.subheader("Portfolio Performance (NAV)")
+    try:
+        nav_summary, nav_curve = get_nav()
+        show_nav(nav_summary, nav_curve)
+    except Exception as e:
+        st.warning(f"NAV panel failed: {e}")
+
+    st.divider()
+
+    # ── Realized P&L ──────────────────────────────────────────────────────────
+    st.subheader("Realized P&L (Closed Trades)")
+    try:
+        realized_summary, realized_history = get_realized()
+        show_realized(realized_summary, realized_history)
+    except Exception as e:
+        st.warning(f"Realized P&L panel failed: {e}")
 
     st.divider()
 

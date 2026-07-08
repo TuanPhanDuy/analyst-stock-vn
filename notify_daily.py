@@ -73,6 +73,21 @@ def run(timeframe: str = "daily") -> None:
         print("ERROR: <70% tickers returned data. Aborting.")
         sys.exit(1)
 
+    # ── 1b. Resolve past signal outcomes ──────────────────────────────────────
+    # Replays each PENDING signal against the fresh OHLCV window to mark
+    # HIT_TARGET / HIT_STOP / EXPIRED. Without this the trade log never closes a
+    # trade, so the ML calibrator and accuracy report stay permanently empty.
+    try:
+        from src.ml_signal import reload as ml_reload
+        from src.trade_log.logger import update_pending_outcomes
+        hold_days = cfg.get("trade_log", {}).get("hold_days", 5)
+        n_resolved = update_pending_outcomes(ohlcv_map, hold_days=hold_days)
+        if n_resolved:
+            print(f"  Resolved {n_resolved} past signal outcome(s) → data/signals.jsonl")
+            ml_reload()   # retrain/re-validate calibrator on the newly closed trades
+    except Exception as e:
+        print(f"  [warn] Outcome resolution failed: {e}")
+
     # ── 2. Market regime ──────────────────────────────────────────────────────
     print("Detecting market regime...")
     regime_result = {"regime": "UNKNOWN", "confidence": 0.0}
@@ -126,7 +141,9 @@ def run(timeframe: str = "daily") -> None:
         except Exception:
             pass
 
-    ranked = rank_by_conviction(analyses, top_n=top_n, min_streak=min_streak)
+    # Ranking is deferred until after foreign flow + insider signals are fetched
+    # (§7, §9) so their score_delta and the regime multiplier can be folded into
+    # each ticker's conviction_score before we rank. See §9c.
 
     # ── 6. Market rules signals (ceiling/floor) ───────────────────────────────
     ceiling_floor_alerts = {}
@@ -202,6 +219,28 @@ def run(timeframe: str = "daily") -> None:
                 print(f"  Insider selling: {', '.join(selling[:5])}")
         except Exception as e:
             print(f"  [warn] Insider tracker failed: {e}")
+
+    # ── 9c. Fold regime + foreign flow + insider into conviction, then rank ───
+    # These three signals were previously display-only. apply_to_analyses folds
+    # them into each ticker's conviction_score (regime multiplies, foreign/insider
+    # add) so the ranking and downstream sizing reflect them.
+    try:
+        from src.scoring.adjustments import apply_to_analyses
+        # Supply the calibrator only when ML is enabled; it self-gates on OOS
+        # validation, so this is a no-op until enough closed trades prove it helps.
+        ml_calibrate = None
+        if cfg.get("ml_signal", {}).get("enabled", True):
+            from src.ml_signal import calibrate_confidence as ml_calibrate
+        apply_to_analyses(analyses, foreign_flows, insider_signals, regime_result,
+                          cfg, ml_calibrate=ml_calibrate)
+        n_adj = sum(
+            1 for a in analyses
+            if a.regime_mult != 1.0 or a.ml_factor != 1.0 or a.foreign_delta or a.insider_delta
+        )
+        print(f"  Conviction adjusted by regime/foreign/insider/ML on {n_adj} tickers")
+    except Exception as e:
+        print(f"  [warn] Conviction adjustment failed: {e}")
+    ranked = rank_by_conviction(analyses, top_n=top_n, min_streak=min_streak)
 
     # ── 9b. VN30F futures snapshot (pre-market leading indicator) ─────────────
     futures_snapshot = {}

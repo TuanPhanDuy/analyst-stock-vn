@@ -214,10 +214,22 @@ insider:
   lookback_days: 90
   cache_ttl: 21600              # 6 hours
 
+signal_adjustments:
+  # Fold these previously display-only signals into the conviction score that
+  # drives ranking & position sizing (see src/scoring/adjustments.py).
+  use_regime: true             # multiply conviction by regime signal_multiplier
+  use_foreign_flow: true       # add foreign-flow score_delta (±0.15)
+  use_insider: true            # add insider score_delta (±0.20)
+
+trade_log:
+  hold_days: 5                  # forward window to resolve a signal's outcome (target/stop/expiry)
+
 ml_signal:
   enabled: true
   min_samples: 20               # minimum closed signals before ML activates
   confidence_blend: 0.50        # weight of ML probability vs raw confidence
+  # Calibration only applies once walk-forward validation shows out-of-sample
+  # skill (OOS AUC ≥ 0.55 and better Brier than base rate). See src/ml_signal.validate().
 
 sector_rotation:
   top_pct: 0.33                 # top third = rotate into
