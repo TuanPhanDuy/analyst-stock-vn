@@ -36,6 +36,11 @@ class SignalRecord:
     target: float
     composite_score: float
     reason: str
+    # Multi-day conviction features — fed to the ML calibrator (src/ml_signal.py).
+    # Older records default these to 0 (backward compatible via .get()).
+    streak_days: int = 0
+    consistency_score: float = 0.0
+    conviction_score: float = 0.0
     outcome_date: str = ""
     outcome_price: float = 0.0
     outcome_pnl_pct: float = 0.0
@@ -56,13 +61,20 @@ def append_signals(ranked: dict, entry_levels: dict, scan_date: str,
                 ticker=ticker,
                 timeframe=item.get("timeframe", ""),
                 action=action.upper(),
-                confidence=_safe_float(item.get("confidence", 0.0)),
+                # Fall back to conviction magnitude so `confidence` is never a
+                # degenerate constant 0 (which made the ML feature useless).
+                confidence=_safe_float(
+                    item.get("confidence") or abs(_safe_float(item.get("conviction_score", 0.0)))
+                ),
                 price=_safe_float(item.get("price", 0.0)),
                 entry=_safe_float(levels.get("entry", item.get("price", 0.0))),
                 stop_loss=_safe_float(levels.get("stop_loss", 0.0)),
                 target=_safe_float(levels.get("target", 0.0)),
                 composite_score=_safe_float(item.get("composite", 0.0)),
                 reason=str(item.get("reason", "")),
+                streak_days=int(_safe_float(item.get("streak_days", 0))),
+                consistency_score=_safe_float(item.get("consistency_score", 0.0)),
+                conviction_score=_safe_float(item.get("conviction_score", 0.0)),
                 outcome_result="PENDING",
             ))
 

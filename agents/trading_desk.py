@@ -238,7 +238,7 @@ Respond ONLY with valid JSON:
             "head_directive": "Analysis unavailable — hold all positions",
             "decisions": [],
             "agent_summaries": {},
-            "risk_alerts": [f"Brief generation failed: {e}"],
+            "risk_alerts": [],
             "market_stance": regime,
             "key_themes": [],
             "execution_note": "",

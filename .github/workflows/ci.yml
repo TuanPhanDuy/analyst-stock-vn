@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest tests/ -q
+
+      # Advisory only: the repo has a pre-existing lint backlog (~63 findings).
+      # This surfaces lint issues on every PR without blocking the merge gate.
+      # Flip continue-on-error to false once `ruff check src/` is clean.
+      - name: Lint (advisory)
+        if: always()
+        continue-on-error: true
+        run: |
+          ruff check src/ scripts/ notify_daily.py

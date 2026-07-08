@@ -62,22 +62,22 @@
 
 <div class="card">
   <div class="row">
-    <label>Ticker</label>
+    <label for="ticker">Ticker</label>
     <input id="ticker" type="text" placeholder="HCM"
            autocorrect="off" autocomplete="off" spellcheck="false"
            autocapitalize="characters"
            oninput="this.value=this.value.toUpperCase()">
   </div>
   <div class="row">
-    <label>Quantity</label>
+    <label for="qty">Quantity</label>
     <input id="qty" type="number" placeholder="100" inputmode="numeric" pattern="[0-9]*" min="1">
   </div>
   <div class="row">
-    <label>Price (VCBS)</label>
+    <label for="price">Price (VCBS)</label>
     <input id="price" type="number" placeholder="26.5" inputmode="decimal" step="0.1" min="0.1">
   </div>
   <div class="row">
-    <label>Notes</label>
+    <label for="notes">Notes</label>
     <input id="notes" type="text" placeholder="optional" autocorrect="off">
   </div>
 </div>
@@ -110,14 +110,23 @@
     if (!qty    || +qty   <= 0) return showErr('Quantity must be greater than 0.');
     if (!price  || +price <= 0) return showErr('Price must be greater than 0.');
 
+    // Dry-run mode: note "testing" means verify UI only, don't submit
+    if (notes.toLowerCase() === 'testing') {
+      banner.className = 'banner ok';
+      banner.textContent = `🧪 DRY RUN — ${action} ${qty} ${ticker} @ ${price} looks valid. No data was saved.`;
+      return;
+    }
+
     btn.disabled    = true;
     btn.textContent = 'Submitting…';
 
     try {
+      const inputs = { action, ticker, qty, price };
+      if (notes) inputs.notes = notes;   // omit when empty — GitHub rejects empty optional inputs
       const res = await fetch(PROXY, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ ref: 'main', inputs: { action, ticker, qty, price, notes } }),
+        body:    JSON.stringify({ ref: 'main', inputs }),
       });
 
       if (res.status === 204) {

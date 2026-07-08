@@ -55,6 +55,9 @@ class PositionStatus:
     message: str
     pct_from_stop: float    # positive = above stop
     pct_from_target: float  # positive = below target
+    effective_stop: float = 0.0     # stop actually used (stored level, or fallback)
+    effective_target: float = 0.0   # target actually used (stored level, or fallback)
+    levels_are_fallback: bool = False  # True if stored stop/target were 0 and recomputed
 
     @property
     def needs_action(self) -> bool:
@@ -153,7 +156,8 @@ def analyze_positions(
         # Use stored levels; recompute from entry_levels as fallback
         stop = pos.stop_loss
         target = pos.target
-        if not stop or not target:
+        levels_are_fallback = not stop or not target
+        if levels_are_fallback:
             el = entry_levels.get(pos.ticker, {})
             stop = stop or float(el.get("stop_loss", current_price * 0.95))
             target = target or float(el.get("target", current_price * 1.07))
@@ -191,6 +195,9 @@ def analyze_positions(
             message=message,
             pct_from_stop=round(pct_from_stop, 2),
             pct_from_target=round(pct_from_target, 2),
+            effective_stop=round(stop),
+            effective_target=round(target),
+            levels_are_fallback=levels_are_fallback,
         ))
 
     return results

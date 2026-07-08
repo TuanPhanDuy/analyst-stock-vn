@@ -96,29 +96,7 @@ def train(min_samples: int = 20) -> Optional[object]:
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            try:
-                from lightgbm import LGBMClassifier
-                model = LGBMClassifier(
-                    n_estimators=200,
-                    max_depth=4,
-                    learning_rate=0.05,
-                    num_leaves=15,
-                    subsample=0.8,
-                    colsample_bytree=0.8,
-                    verbose=-1,
-                    random_state=42,
-                )
-                logger.debug("ML calibrator: using LightGBM")
-            except ImportError:
-                from sklearn.ensemble import GradientBoostingClassifier
-                model = GradientBoostingClassifier(
-                    n_estimators=100,
-                    max_depth=3,
-                    learning_rate=0.1,
-                    random_state=42,
-                )
-                logger.debug("ML calibrator: using GradientBoosting (sklearn)")
-
+            model = _make_model()
             model.fit(X, y)
             return model
     except Exception as e:
@@ -126,9 +104,106 @@ def train(min_samples: int = 20) -> Optional[object]:
         return None
 
 
-# Module-level model cache (loaded once per process)
+def _make_model():
+    """Instantiate the classifier (LightGBM preferred, sklearn GB fallback)."""
+    try:
+        from lightgbm import LGBMClassifier
+        return LGBMClassifier(
+            n_estimators=200, max_depth=4, learning_rate=0.05, num_leaves=15,
+            subsample=0.8, colsample_bytree=0.8, verbose=-1, random_state=42,
+        )
+    except ImportError:
+        from sklearn.ensemble import GradientBoostingClassifier
+        return GradientBoostingClassifier(
+            n_estimators=100, max_depth=3, learning_rate=0.1, random_state=42,
+        )
+
+
+def validate(min_samples: int = 20, n_splits: int = 5) -> dict:
+    """
+    Walk-forward (time-series) out-of-sample validation of the calibrator.
+
+    The production model is trained on ALL closed trades (that's correct — you
+    want to use every observation). The danger is *trusting* an overfit model.
+    This function estimates genuine out-of-sample skill with a TimeSeriesSplit:
+    train on the past, predict the next block, never peeking forward.
+
+    Returns:
+        {
+          reliable: bool,          # True only if the model beats the base-rate baseline OOS
+          reason: str,
+          n_samples: int,
+          oos_auc: float | None,   # ROC-AUC on pooled OOS predictions (0.5 = coin flip)
+          oos_brier: float | None, # Brier score of the model (lower = better)
+          baseline_brier: float | None,  # Brier of always predicting the base win rate
+        }
+
+    `reliable` requires oos_auc ≥ 0.55 AND a Brier score below the naive baseline,
+    so calibration only ever activates when it demonstrably improves on doing nothing.
+    """
+    closed = _load_closed_trades()
+    n = len(closed)
+    if n < min_samples:
+        return {"reliable": False, "reason": f"insufficient data ({n}/{min_samples})",
+                "n_samples": n, "oos_auc": None, "oos_brier": None, "baseline_brier": None}
+
+    # Order chronologically so the split respects time.
+    if "scan_date" in closed.columns:
+        closed = closed.sort_values("scan_date")
+
+    X = _build_features(closed).reset_index(drop=True)
+    y = (closed["outcome_pnl_pct"] > 0).astype(int).reset_index(drop=True)
+    if y.nunique() < 2:
+        return {"reliable": False, "reason": "only one outcome class present",
+                "n_samples": n, "oos_auc": None, "oos_brier": None, "baseline_brier": None}
+
+    splits = max(2, min(n_splits, n // 10))
+    try:
+        from sklearn.metrics import brier_score_loss, roc_auc_score
+        from sklearn.model_selection import TimeSeriesSplit
+    except Exception as e:  # pragma: no cover - sklearn is a hard dep
+        return {"reliable": False, "reason": f"sklearn unavailable: {e}",
+                "n_samples": n, "oos_auc": None, "oos_brier": None, "baseline_brier": None}
+
+    oos_true, oos_pred, base_pred = [], [], []
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for train_idx, test_idx in TimeSeriesSplit(n_splits=splits).split(X):
+            y_train = y.iloc[train_idx]
+            if y_train.nunique() < 2:
+                continue  # can't learn from a single-class training fold
+            try:
+                model = _make_model()
+                model.fit(X.iloc[train_idx], y_train)
+                proba = model.predict_proba(X.iloc[test_idx])[:, 1]
+            except Exception:
+                continue
+            oos_true.extend(y.iloc[test_idx].tolist())
+            oos_pred.extend(proba.tolist())
+            base_pred.extend([float(y_train.mean())] * len(test_idx))
+
+    if len(oos_true) < 5 or len(set(oos_true)) < 2:
+        return {"reliable": False, "reason": "not enough OOS folds with both classes",
+                "n_samples": n, "oos_auc": None, "oos_brier": None, "baseline_brier": None}
+
+    oos_auc = float(roc_auc_score(oos_true, oos_pred))
+    oos_brier = float(brier_score_loss(oos_true, oos_pred))
+    baseline_brier = float(brier_score_loss(oos_true, base_pred))
+    reliable = oos_auc >= 0.55 and oos_brier < baseline_brier
+    return {
+        "reliable": reliable,
+        "reason": "ok" if reliable else "no out-of-sample edge over base rate",
+        "n_samples": n,
+        "oos_auc": round(oos_auc, 3),
+        "oos_brier": round(oos_brier, 4),
+        "baseline_brier": round(baseline_brier, 4),
+    }
+
+
+# Module-level caches (computed once per process; cleared by reload()).
 _model: Optional[object] = None
 _model_initialized: bool = False
+_validation: Optional[dict] = None
 
 
 def _get_model(min_samples: int = 20) -> Optional[object]:
@@ -139,10 +214,29 @@ def _get_model(min_samples: int = 20) -> Optional[object]:
     return _model
 
 
+def get_validation(min_samples: int = 20) -> dict:
+    """Cached walk-forward validation result for this process."""
+    global _validation
+    if _validation is None:
+        _validation = validate(min_samples=min_samples)
+    return _validation
+
+
+def _get_validated_model(min_samples: int = 20, require_validation: bool = True):
+    """Return the trained model only if it passes OOS validation (else None)."""
+    model = _get_model(min_samples=min_samples)
+    if model is None:
+        return None
+    if not require_validation:
+        return model
+    return model if get_validation(min_samples).get("reliable") else None
+
+
 def reload():
-    """Force re-train the model on next call (use after new signal outcomes are logged)."""
-    global _model_initialized
+    """Force re-train + re-validate on next call (use after new outcomes are logged)."""
+    global _model_initialized, _validation
     _model_initialized = False
+    _validation = None
 
 
 def calibrate_confidence(
@@ -153,6 +247,7 @@ def calibrate_confidence(
     consistency_score: float = 0.0,
     blend: float = 0.50,
     min_samples: int = 20,
+    require_validation: bool = True,
 ) -> float:
     """
     Adjust a signal's raw confidence using ML win-probability estimate.
@@ -165,12 +260,14 @@ def calibrate_confidence(
         consistency_score: from multiday analysis
         blend: weight of ML probability (0.5 = 50/50 blend with raw)
         min_samples: minimum closed trades before ML activates
+        require_validation: only calibrate if the model passes OOS validation
+            (default True — never apply an unvalidated, possibly-overfit model).
 
     Returns:
         Calibrated confidence (0–1).
-        Returns raw confidence unchanged if model is not available.
+        Returns raw confidence unchanged if no validated model is available.
     """
-    model = _get_model(min_samples=min_samples)
+    model = _get_validated_model(min_samples=min_samples, require_validation=require_validation)
     if model is None:
         return confidence
 
@@ -253,9 +350,16 @@ def accuracy_report() -> dict:
         for t, row in ticker_perf.tail(5).iterrows()
     ]
 
-    # ML model status
+    # ML model status — a model only counts as "active" once it passes OOS validation.
     model = _get_model()
-    ml_status = "active" if model is not None else f"inactive (need ≥{20} closed trades, have {len(closed)})"
+    if model is None:
+        ml_status = f"inactive (need ≥20 closed trades, have {len(closed)})"
+    else:
+        v = get_validation()
+        if v.get("reliable"):
+            ml_status = f"active & validated (OOS AUC={v.get('oos_auc')})"
+        else:
+            ml_status = f"trained but not applied — {v.get('reason')}"
 
     return {
         "total_closed": len(closed),

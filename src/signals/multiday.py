@@ -47,8 +47,16 @@ class MultiDayAnalysis:
     consistency_score: float = 0.0   # 0.0–1.0: % of days same direction as today
     confidence_trend: float = 0.0    # linear slope of confidence over window
     streak_days: int = 0             # consecutive trading days same direction
-    conviction_score: float = 0.0    # final adjusted score for ranking (signed)
+    conviction_score: float = 0.0    # final score for ranking (signed, post-adjustment)
     conviction_label: str = "LOW"    # HIGH | MEDIUM | LOW
+
+    # External adjustment factors (see src.scoring.adjustments). Neutral by default;
+    # populated by apply_to_analyses() once regime/foreign/insider are known.
+    raw_conviction_score: float = 0.0  # conviction_score before external adjustments
+    regime_mult: float = 1.0           # multiplicative regime factor
+    ml_factor: float = 1.0             # multiplicative validated-ML factor
+    foreign_delta: float = 0.0         # additive foreign-flow score delta
+    insider_delta: float = 0.0         # additive insider score delta
 
     def to_dict(self) -> dict:
         return {
@@ -61,6 +69,11 @@ class MultiDayAnalysis:
             "consistency_score": round(self.consistency_score, 3),
             "confidence_trend": round(self.confidence_trend, 4),
             "streak_days": self.streak_days,
+            "raw_conviction_score": round(self.raw_conviction_score, 3),
+            "regime_mult": round(self.regime_mult, 3),
+            "ml_factor": round(self.ml_factor, 3),
+            "foreign_delta": round(self.foreign_delta, 3),
+            "insider_delta": round(self.insider_delta, 3),
             "snapshots": [
                 {
                     "date": s.date,
@@ -229,6 +242,7 @@ def analyze_ticker(
         streak_days=streak,
         conviction_score=round(conviction_score, 4),
         conviction_label=conviction_label,
+        raw_conviction_score=round(conviction_score, 4),
     )
 
 
