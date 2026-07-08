@@ -81,7 +81,7 @@ def test_calibrate_passes_through_when_not_validated(tmp_path):
     _write_log(ml.LOG_PATH, rows)
     # Not enough data → no validated model → confidence unchanged.
     out = ml.calibrate_confidence(0.7, 0.5, "BUY", streak_days=3, consistency_score=0.8)
-    assert out == 0.7
+    assert out == pytest.approx(0.7)
 
 
 def test_calibrate_applies_when_validated(tmp_path):

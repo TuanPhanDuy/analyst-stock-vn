@@ -1,6 +1,8 @@
 """Tests for conviction-score adjustment (regime / foreign flow / insider)."""
 from dataclasses import dataclass
 
+import pytest
+
 from src.scoring.adjustments import adjust_conviction, apply_to_analyses
 
 
@@ -12,17 +14,17 @@ CFG = {"regime": {"bull_signal_boost": 0.15, "bear_signal_penalty": 0.10,
 
 def test_no_signals_passthrough():
     out = adjust_conviction(0.50)
-    assert out["adjusted"] == 0.50
-    assert out["regime_mult"] == 1.0
-    assert out["foreign_delta"] == 0.0
-    assert out["insider_delta"] == 0.0
+    assert out["adjusted"] == pytest.approx(0.50)
+    assert out["regime_mult"] == pytest.approx(1.0)
+    assert out["foreign_delta"] == pytest.approx(0.0)
+    assert out["insider_delta"] == pytest.approx(0.0)
 
 
 def test_bull_regime_boosts_buy():
     out = adjust_conviction(0.50, regime_result=BULL, cfg=CFG)
     # bull_signal_boost 0.15 * confidence 1.0 → ×1.15
-    assert out["regime_mult"] == 1.15
-    assert out["adjusted"] == round(0.50 * 1.15, 4)
+    assert out["regime_mult"] == pytest.approx(1.15)
+    assert out["adjusted"] == pytest.approx(0.50 * 1.15)
 
 
 def test_bear_regime_penalises_buy():
@@ -34,14 +36,14 @@ def test_bear_regime_penalises_buy():
 def test_foreign_selling_dampens_buy():
     foreign = {"score_delta": -0.15}
     out = adjust_conviction(0.40, foreign=foreign)
-    assert out["foreign_delta"] == -0.15
-    assert out["adjusted"] == round(0.40 - 0.15, 4)
+    assert out["foreign_delta"] == pytest.approx(-0.15)
+    assert out["adjusted"] == pytest.approx(0.40 - 0.15)
 
 
 def test_insider_buying_reinforces_buy():
     insider = {"score_delta": 0.20}
     out = adjust_conviction(0.30, insider=insider)
-    assert out["adjusted"] == round(0.30 + 0.20, 4)
+    assert out["adjusted"] == pytest.approx(0.30 + 0.20)
 
 
 def test_strong_opposing_insider_can_flip_weak_buy():
@@ -55,8 +57,7 @@ def test_combined_factors():
         0.40, regime_result=BULL,
         foreign={"score_delta": 0.10}, insider={"score_delta": 0.20}, cfg=CFG,
     )
-    expected = round(0.40 * 1.15 + 0.10 + 0.20, 4)
-    assert out["adjusted"] == expected
+    assert out["adjusted"] == pytest.approx(0.40 * 1.15 + 0.10 + 0.20)
 
 
 def test_toggles_disable_factors():
@@ -67,8 +68,8 @@ def test_toggles_disable_factors():
         0.40, regime_result=BULL,
         foreign={"score_delta": 0.10}, insider={"score_delta": 0.20}, cfg=cfg,
     )
-    assert out["adjusted"] == 0.40
-    assert out["regime_mult"] == 1.0
+    assert out["adjusted"] == pytest.approx(0.40)
+    assert out["regime_mult"] == pytest.approx(1.0)
 
 
 @dataclass
@@ -98,25 +99,25 @@ def test_apply_to_analyses_mutates_and_preserves_raw():
         cfg=CFG,
     )
     hpg = analyses[0]
-    assert hpg.raw_conviction_score == 0.50
-    assert hpg.foreign_delta == -0.15
-    assert hpg.regime_mult == 1.15
-    assert hpg.conviction_score == round(0.50 * 1.15 - 0.15, 4)
+    assert hpg.raw_conviction_score == pytest.approx(0.50)
+    assert hpg.foreign_delta == pytest.approx(-0.15)
+    assert hpg.regime_mult == pytest.approx(1.15)
+    assert hpg.conviction_score == pytest.approx(0.50 * 1.15 - 0.15)
 
     vcb = analyses[1]
     # SELL (negative) in a bull market is discounted (regime_mult < 1),
     # and insider buying (positive delta) dampens the sell.
-    assert vcb.raw_conviction_score == -0.40
-    assert vcb.insider_delta == 0.20
+    assert vcb.raw_conviction_score == pytest.approx(-0.40)
+    assert vcb.insider_delta == pytest.approx(0.20)
     assert vcb.conviction_score > -0.40
 
 
 def test_apply_to_analyses_handles_missing_signals():
     analyses = [_FakeAnalysis("FPT", 0.25)]
     apply_to_analyses(analyses)  # no signals at all
-    assert analyses[0].conviction_score == 0.25
-    assert analyses[0].raw_conviction_score == 0.25
-    assert analyses[0].ml_factor == 1.0
+    assert analyses[0].conviction_score == pytest.approx(0.25)
+    assert analyses[0].raw_conviction_score == pytest.approx(0.25)
+    assert analyses[0].ml_factor == pytest.approx(1.0)
 
 
 def test_ml_factor_scales_conviction():
@@ -138,11 +139,11 @@ def test_ml_factor_is_clamped():
 
     analyses = [_FakeAnalysis("HPG", 0.10, current_composite=0.10)]
     apply_to_analyses(analyses, ml_calibrate=fake_calibrate)
-    assert analyses[0].ml_factor == 1.5  # clamped, not 10x
+    assert analyses[0].ml_factor == pytest.approx(1.5)  # clamped, not 10x
 
 
 def test_ml_calibrate_none_is_neutral():
     analyses = [_FakeAnalysis("HPG", 0.40, current_composite=0.40)]
     apply_to_analyses(analyses, ml_calibrate=None)
-    assert analyses[0].ml_factor == 1.0
-    assert analyses[0].conviction_score == 0.40
+    assert analyses[0].ml_factor == pytest.approx(1.0)
+    assert analyses[0].conviction_score == pytest.approx(0.40)

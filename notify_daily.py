@@ -233,9 +233,12 @@ def run(timeframe: str = "daily") -> None:
             from src.ml_signal import calibrate_confidence as ml_calibrate
         apply_to_analyses(analyses, foreign_flows, insider_signals, regime_result,
                           cfg, ml_calibrate=ml_calibrate)
+        import math
         n_adj = sum(
             1 for a in analyses
-            if a.regime_mult != 1.0 or a.ml_factor != 1.0 or a.foreign_delta or a.insider_delta
+            if not math.isclose(a.regime_mult, 1.0)
+            or not math.isclose(a.ml_factor, 1.0)
+            or a.foreign_delta or a.insider_delta
         )
         print(f"  Conviction adjusted by regime/foreign/insider/ML on {n_adj} tickers")
     except Exception as e:
