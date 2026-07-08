@@ -30,6 +30,15 @@ from typing import Optional
 from src.regime import signal_multiplier
 
 
+def _direction_action(score: float) -> str:
+    """Map a signed score to a signal action."""
+    if score > 0:
+        return "BUY"
+    if score < 0:
+        return "SELL"
+    return "HOLD"
+
+
 def adjust_conviction(
     base_conviction: float,
     *,
@@ -56,7 +65,7 @@ def adjust_conviction(
     use_foreign = adj_cfg.get("use_foreign_flow", True)
     use_insider = adj_cfg.get("use_insider", True)
 
-    action = "BUY" if base_conviction > 0 else ("SELL" if base_conviction < 0 else "HOLD")
+    action = _direction_action(base_conviction)
 
     regime_mult = 1.0
     if use_regime and regime_result and action in ("BUY", "SELL"):

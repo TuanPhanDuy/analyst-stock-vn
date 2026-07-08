@@ -32,6 +32,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+AVG_PNL_LABEL = "Avg P&L"
+
 # ── Config ───────────────────────────────────────────────────────────────────
 
 @st.cache_data(ttl=3600)
@@ -323,7 +325,7 @@ def show_portfolio(ohlcv_map: dict, entry_levels: dict) -> None:
     if pnl_values:
         m1, m2, m3 = st.columns(3)
         m1.metric("Positions", len(statuses))
-        m2.metric("Avg P&L", f"{sum(pnl_values)/len(pnl_values):+.2f}%")
+        m2.metric(AVG_PNL_LABEL, f"{sum(pnl_values)/len(pnl_values):+.2f}%")
         actions_needed = sum(1 for s in statuses if s.needs_action)
         m3.metric("Actions Required", actions_needed,
                   delta="⚠ Review needed" if actions_needed else None)
@@ -339,7 +341,7 @@ def show_accuracy(acc: dict) -> None:
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Closed Trades", acc.get("total_closed", 0))
     col2.metric("Win Rate", f"{acc.get('overall_win_rate_pct', 0):.1f}%")
-    col3.metric("Avg P&L", f"{acc.get('avg_pnl_pct', 0):+.2f}%")
+    col3.metric(AVG_PNL_LABEL, f"{acc.get('avg_pnl_pct', 0):+.2f}%")
     col4.metric("Pending", acc.get("total_pending", 0))
 
     if acc.get("by_action"):
@@ -399,7 +401,7 @@ def show_realized(summary: dict, history: list) -> None:
     c1.metric("Realized P&L", f"{summary.get('total_realized_vnd', 0):+,.0f} ₫")
     c2.metric("Closed Lots", summary.get("closed_lots", 0))
     c3.metric("Win Rate", f"{summary.get('win_rate_pct', 0):.1f}%")
-    c4.metric("Avg P&L", f"{summary.get('avg_pnl_pct', 0):+.2f}%")
+    c4.metric(AVG_PNL_LABEL, f"{summary.get('avg_pnl_pct', 0):+.2f}%")
 
     if history:
         rows = [

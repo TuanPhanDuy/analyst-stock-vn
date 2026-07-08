@@ -62,22 +62,22 @@
 
 <div class="card">
   <div class="row">
-    <label>Ticker</label>
+    <label for="ticker">Ticker</label>
     <input id="ticker" type="text" placeholder="HCM"
            autocorrect="off" autocomplete="off" spellcheck="false"
            autocapitalize="characters"
            oninput="this.value=this.value.toUpperCase()">
   </div>
   <div class="row">
-    <label>Quantity</label>
+    <label for="qty">Quantity</label>
     <input id="qty" type="number" placeholder="100" inputmode="numeric" pattern="[0-9]*" min="1">
   </div>
   <div class="row">
-    <label>Price (VCBS)</label>
+    <label for="price">Price (VCBS)</label>
     <input id="price" type="number" placeholder="26.5" inputmode="decimal" step="0.1" min="0.1">
   </div>
   <div class="row">
-    <label>Notes</label>
+    <label for="notes">Notes</label>
     <input id="notes" type="text" placeholder="optional" autocorrect="off">
   </div>
 </div>
