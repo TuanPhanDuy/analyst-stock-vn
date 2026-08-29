@@ -1,5 +1,6 @@
 """
-Data access layer using vnstock (legacy 0.2.x ohlc_data API).
+Data access layer using vnstock (Vnstock().stock().quote.history() API,
+with a fallback to the legacy 0.2.x ohlc_data() function for old installs).
 All methods return pandas DataFrames with DatetimeIndex.
 Responses are cached to data/cache/ to avoid rate-limiting.
 """
@@ -50,13 +51,13 @@ def _make_stock(ticker: str):
     raise ImportError("Install vnstock3: pip install vnstock3")
 
 
-# Columns the legacy vnstock.ohlc_data endpoint is expected to return.
+# Columns the vnstock OHLCV endpoints (quote.history / legacy ohlc_data) return.
 _OHLCV_REQUIRED = ("time", "open", "high", "low", "close", "volume")
 
 
 def _normalize_ohlcv(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     """
-    Validate and normalize a raw vnstock.ohlc_data frame into the project's
+    Validate and normalize a raw vnstock OHLCV frame into the project's
     canonical OHLCV shape: DatetimeIndex + open/high/low/close/volume in VND.
 
     Raises ValueError with an actionable message if the upstream schema changed
@@ -84,10 +85,14 @@ def get_ohlcv(ticker: str, start: str, end: str, ttl: int = 3600) -> pd.DataFram
     """Daily OHLCV. Columns: open high low close volume. Index: DatetimeIndex."""
     def fetch():
         import warnings
-        import vnstock  # type: ignore
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            df = vnstock.ohlc_data(ticker, start_date=start, end_date=end)
+            try:
+                stock = _make_stock(ticker)
+                df = stock.quote.history(start=start, end=end)
+            except ImportError:
+                import vnstock  # type: ignore
+                df = vnstock.ohlc_data(ticker, start_date=start, end_date=end)
         return _normalize_ohlcv(df, ticker)
     return _cache_pkl(f"ohlcv:{ticker}:{start}:{end}", ttl, fetch)
 
