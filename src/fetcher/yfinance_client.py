@@ -72,6 +72,8 @@ def get_ohlcv(ticker: str, days: int = 400, ttl: int = 3600) -> pd.DataFrame:
             return stale
         raise ValueError(f"No data returned for {ticker}")
 
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
     df.columns = [c.lower() for c in df.columns]
     df.index = pd.to_datetime(df.index).tz_localize(None)
     df = df[["open", "high", "low", "close", "volume"]].dropna()
@@ -104,6 +106,8 @@ def get_ohlcv_bulk(tickers: list, days: int = 400) -> dict:
         for ticker, sym in zip(tickers, syms):
             try:
                 df = raw.copy() if len(tickers) == 1 else raw[sym].copy()
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = df.columns.get_level_values(0)
                 df.columns = [c.lower() for c in df.columns]
                 df.index = pd.to_datetime(df.index).tz_localize(None)
                 df = df[["open", "high", "low", "close", "volume"]].dropna()

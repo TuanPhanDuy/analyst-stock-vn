@@ -1,6 +1,10 @@
 name: Daily VN Stock Scan
 
 on:
+  # Was paused 2026-10-09 because `pip install -r requirements.txt` failed
+  # (PyPI quarantined/removed vnai, vnstock, vnstock_ezchart — vnstock3's
+  # transitive deps). Fixed via local stubs in vendor/ — see
+  # requirements.txt and vendor/vnai/README.md. Re-enabled 2026-10-25.
   schedule:
     - cron: '0 22 * * 0-4'  # 5:00 AM ICT (UTC+7) Mon–Fri; fires at 22:00 UTC Sun–Thu to absorb GitHub's typical 2–3 h queue delay
   workflow_dispatch:          # manual trigger: GitHub UI → Actions → Run workflow

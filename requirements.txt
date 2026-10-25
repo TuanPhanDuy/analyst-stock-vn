@@ -1,5 +1,21 @@
 # Core data
-vnstock>=0.2.9
+# NOTE: as of 2026-10, PyPI quarantined "vnai" (vnstock3's hard dependency)
+# with zero installable files, and fully removed legacy "vnstock" and every
+# "vnstock_ezchart" release (which itself depends on the gone "vnstock").
+# ./vendor/vnai and ./vendor/vnstock_ezchart are minimal local no-op stubs
+# that satisfy vnstock3's imports without needing either broken package —
+# see vendor/vnai/README.md. The other pins below (pytz, tenacity,
+# click_repl, cryptography, packaging, ipython) are real vnstock3 runtime
+# imports that it fails to declare as dependencies.
+./vendor/vnai
+./vendor/vnstock_ezchart
+vnstock3>=3.2.0
+pytz
+tenacity
+click_repl
+cryptography
+packaging
+ipython
 yfinance>=0.2.40
 pandas>=2.0.0
 numpy>=1.24.0

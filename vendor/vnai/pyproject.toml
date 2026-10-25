@@ -1,0 +1,9 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vnai"
+version = "2.0.0"
+description = "Local no-op stub for the PyPI-quarantined vnai package, so vnstock3 installs without it"
+requires-python = ">=3.9"
