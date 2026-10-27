@@ -51,6 +51,20 @@ def _make_stock(ticker: str):
     raise ImportError("Install vnstock3: pip install vnstock3")
 
 
+def _make_quote(ticker: str):
+    """
+    Return a vnstock3 VCI Quote object directly, bypassing Vnstock().stock().
+
+    Vnstock().stock() eagerly builds a Company sub-object on construction,
+    which calls VCI's GraphQL endpoint (api.vietcap.com.vn/data-mt/graphql) —
+    that endpoint now 404s regardless of payload, breaking stock() for OHLCV
+    even though the separate chart endpoint Quote.history() uses still works.
+    Importing Quote directly skips that dead call entirely.
+    """
+    from vnstock3.explorer.vci.quote import Quote  # type: ignore
+    return Quote(symbol=ticker)
+
+
 # Columns the vnstock OHLCV endpoints (quote.history / legacy ohlc_data) return.
 _OHLCV_REQUIRED = ("time", "open", "high", "low", "close", "volume")
 
@@ -88,8 +102,8 @@ def get_ohlcv(ticker: str, start: str, end: str, ttl: int = 3600) -> pd.DataFram
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             try:
-                stock = _make_stock(ticker)
-                df = stock.quote.history(start=start, end=end)
+                quote = _make_quote(ticker)
+                df = quote.history(start=start, end=end)
             except ImportError:
                 import vnstock  # type: ignore
                 df = vnstock.ohlc_data(ticker, start_date=start, end_date=end)

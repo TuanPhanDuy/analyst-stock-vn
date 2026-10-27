@@ -1,6 +1,10 @@
 name: Market Open Advisor
 
 on:
+  # Was paused 2026-10-09 because `pip install -r requirements.txt` failed
+  # (PyPI quarantined/removed vnai, vnstock, vnstock_ezchart — vnstock3's
+  # transitive deps). Fixed via local stubs in vendor/ — see
+  # requirements.txt and vendor/vnai/README.md. Re-enabled 2026-10-25.
   schedule:
     # 9:15 AM ICT = 02:15 UTC Mon–Fri (after ATO, morning session starts)
     - cron: '15 2 * * 1-5'

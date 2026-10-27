@@ -20,6 +20,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 import yaml
 
 # Ensure project root is on path
@@ -31,6 +32,45 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+PANE_TOGGLE_LABEL = "⌗ Pane view (P)"
+
+
+def _init_pane_mode() -> None:
+    """
+    Keyboard shortcut for the tabs↔panes toggle below.
+
+    Streamlit has no native hotkey API, so this listens on the parent
+    document (components.html renders in a sandboxed iframe) and clicks the
+    real Streamlit toggle button by matching its label text — no extra
+    component library needed. Ignores the key while focus is in an
+    input/textarea/select so it doesn't fire while typing.
+    """
+    st.session_state.setdefault("pane_mode", False)
+    components.html(
+        f"""
+        <script>
+        const doc = window.parent.document;
+        if (!doc._paneShortcutBound) {{
+            doc._paneShortcutBound = true;
+            doc.addEventListener('keydown', function(e) {{
+                if (e.key.toLowerCase() !== 'p') return;
+                if (e.ctrlKey || e.metaKey || e.altKey) return;
+                const tag = (e.target.tagName || '').toLowerCase();
+                if (['input', 'textarea', 'select'].includes(tag)) return;
+                const btns = doc.querySelectorAll('button');
+                for (const b of btns) {{
+                    if (b.innerText.trim() === {PANE_TOGGLE_LABEL!r}) {{
+                        b.click();
+                        break;
+                    }}
+                }}
+            }});
+        }}
+        </script>
+        """,
+        height=0,
+    )
 
 AVG_PNL_LABEL = "Avg P&L"
 
@@ -130,6 +170,12 @@ def sidebar() -> dict:
         st.cache_data.clear()
         st.rerun()
 
+    if st.sidebar.button(PANE_TOGGLE_LABEL, use_container_width=True):
+        st.session_state.pane_mode = not st.session_state.pane_mode
+    st.sidebar.caption(
+        "Pane mode: **ON**" if st.session_state.pane_mode else "Pane mode: off"
+    )
+
     return {
         "watchlist": watchlist_choice,
         "tickers": cfg["watchlist"].get(watchlist_choice, cfg["watchlist"]["vn30"]),
@@ -203,8 +249,8 @@ def show_sector_rotation(sr_result: dict) -> None:
 
     styled = (
         df.style
-        .applymap(_color_signal, subset=["Signal"])
-        .applymap(_color_return, subset=["1M Avg %", "3M Avg %", "Alpha 1M"])
+        .map(_color_signal, subset=["Signal"])
+        .map(_color_return, subset=["1M Avg %", "3M Avg %", "Alpha 1M"])
         .format({
             "1M Avg %": "{:+.1f}%",
             "3M Avg %": "{:+.1f}%",
@@ -248,7 +294,7 @@ def show_signals(ranked: dict, entry_levels: dict, action: str) -> None:
         colors = {"HIGH": "#d4edda", "MEDIUM": "#fff3cd", "LOW": "#f8f9fa"}
         return f"background-color: {colors.get(str(val), '')}"
 
-    styled = df.style.applymap(_color_label, subset=["Label"])
+    styled = df.style.map(_color_label, subset=["Label"])
     st.dataframe(styled, use_container_width=True, hide_index=True)
 
 
@@ -312,8 +358,8 @@ def show_portfolio(ohlcv_map: dict, entry_levels: dict) -> None:
 
     styled = (
         df.style
-        .applymap(_color_pnl, subset=["P&L %"])
-        .applymap(_color_status, subset=["Status"])
+        .map(_color_pnl, subset=["P&L %"])
+        .map(_color_status, subset=["Status"])
         .format({"P&L %": "{:+.2f}%"})
     )
     st.dataframe(styled, use_container_width=True, hide_index=True)
@@ -418,7 +464,7 @@ def show_realized(summary: dict, history: list) -> None:
         ]
         styled = (
             pd.DataFrame(rows).style
-            .applymap(
+            .map(
                 lambda v: "color:#28a745;font-weight:bold" if v > 0 else "color:#dc3545;font-weight:bold",
                 subset=["P&L %"],
             )
@@ -430,6 +476,7 @@ def show_realized(summary: dict, history: list) -> None:
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
+    _init_pane_mode()
     opts = sidebar()
     tickers = opts["tickers"]
     tickers_key = ",".join(sorted(tickers))
@@ -470,27 +517,40 @@ def main():
             st.error(f"Signal analysis failed: {e}")
             return
 
-    tab_buy, tab_sell, tab_watch = st.tabs(["BUY Signals", "SELL Signals", "WATCH (new today)"])
+    def _render_watch() -> None:
+        if not analyses:
+            return
+        watch_buys = sorted(
+            [a for a in analyses if a.conviction_score > 0 and a.streak_days < opts["min_streak"]],
+            key=lambda x: x.conviction_score, reverse=True
+        )[:10]
+        if watch_buys:
+            rows = [{"Ticker": a.ticker, "Price": f"{a.current_price:,.0f}",
+                      "Score": f"{a.conviction_score:+.3f}", "Rec": a.current_recommendation,
+                      "Note": "First signal — confirm tomorrow"} for a in watch_buys]
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        else:
+            st.info("No new signals today (all signals already have prior confirmation).")
 
-    with tab_buy:
-        show_signals(ranked, entry_levels, "buy")
-
-    with tab_sell:
-        show_signals(ranked, entry_levels, "sell")
-
-    with tab_watch:
-        if analyses:
-            watch_buys = sorted(
-                [a for a in analyses if a.conviction_score > 0 and a.streak_days < opts["min_streak"]],
-                key=lambda x: x.conviction_score, reverse=True
-            )[:10]
-            if watch_buys:
-                rows = [{"Ticker": a.ticker, "Price": f"{a.current_price:,.0f}",
-                          "Score": f"{a.conviction_score:+.3f}", "Rec": a.current_recommendation,
-                          "Note": "First signal — confirm tomorrow"} for a in watch_buys]
-                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-            else:
-                st.info("No new signals today (all signals already have prior confirmation).")
+    if st.session_state.pane_mode:
+        pane_buy, pane_sell, pane_watch = st.columns(3)
+        with pane_buy:
+            st.markdown("**BUY Signals**")
+            show_signals(ranked, entry_levels, "buy")
+        with pane_sell:
+            st.markdown("**SELL Signals**")
+            show_signals(ranked, entry_levels, "sell")
+        with pane_watch:
+            st.markdown("**WATCH (new today)**")
+            _render_watch()
+    else:
+        tab_buy, tab_sell, tab_watch = st.tabs(["BUY Signals", "SELL Signals", "WATCH (new today)"])
+        with tab_buy:
+            show_signals(ranked, entry_levels, "buy")
+        with tab_sell:
+            show_signals(ranked, entry_levels, "sell")
+        with tab_watch:
+            _render_watch()
 
     st.divider()
 
